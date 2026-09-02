@@ -318,12 +318,91 @@ class Duck {
   }
 
   explode(x, y) {
-    this.explosions.push({ x, y, life: 18, size: 12 });
-    for (let k = 0; k < 10; k++) this.explosions.push({
-      x: x + (Math.random() - 0.5) * 24,
-      y: y + (Math.random() - 0.5) * 24,
-      life: 12, size: 3 + Math.random() * 4
-    });
+    const e = {
+      x, y, life: 26, size: 10 + Math.random() * 4,
+      embers: [], smoke: [], glow: Math.random() * 6.28
+    };
+    for (let k = 0; k < 18; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 3.5;
+      e.embers.push({
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.2,
+        life: 14 + Math.random() * 12, size: 1 + Math.random() * 2.5,
+        color: ["#FFE08A", "#FFB347", "#FF8C42", "#FF5A1F"][Math.floor(Math.random() * 4)]
+      });
+    }
+    for (let k = 0; k < 10; k++) {
+      e.smoke.push({
+        x: x + (Math.random() - 0.5) * 12, y: y - 6 + (Math.random() - 0.5) * 6,
+        vx: (Math.random() - 0.5) * 0.7, vy: -0.7 - Math.random() * 0.9,
+        life: 20 + Math.random() * 16, size: 4 + Math.random() * 6
+      });
+    }
+    this.explosions.push(e);
+  }
+
+  // realistic 3D-style explosion: fireball + shockwave + rising smoke + embers
+  drawExplosions() {
+    for (const e of this.explosions) {
+      const t = 26 - e.life;
+      const age = t / 26;
+      const grow = t * 1.4;
+      const r = e.size + grow * 0.6;
+      const alpha = e.life / 26;
+      // rising smoke cloud (billowing, semitransparent dark puffs)
+      for (const s of e.smoke) {
+        s.x += s.vx; s.y += s.vy; s.vy += 0.06; s.life -= 1;
+        const sa = Math.min(0.55, s.life / 22) * alpha;
+        ctx.fillStyle = `rgba(40, 36, 34, ${sa})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size + (22 - Math.max(0, s.life)) * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // ambient glow behind the fireball
+      const gl = ctx.createRadialGradient(e.x, e.y, r * 0.2, e.x, e.y, r * 2.4);
+      gl.addColorStop(0, `rgba(255, 160, 40, ${alpha * 0.7})`);
+      gl.addColorStop(1, "rgba(255, 120, 20, 0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r * 2.4, 0, Math.PI * 2); ctx.fill();
+      // outer fireball (orange-red)
+      ctx.fillStyle = `rgba(255, 90, 24, ${alpha})`;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.fill();
+      // hot inner core (yellow)
+      ctx.fillStyle = `rgba(255, 195, 40, ${alpha * 0.9})`;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.62, 0, Math.PI * 2); ctx.fill();
+      // white-hot center
+      ctx.fillStyle = `rgba(255, 255, 210, ${alpha})`;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.3, 0, Math.PI * 2); ctx.fill();
+      // flame tongues radiating outward (spiky)
+      for (let k = 0; k < 8; k++) {
+        const ang = e.glow + k / 8 * Math.PI * 2;
+        const lx = e.x + Math.cos(ang) * r;
+        const ly = e.y + Math.sin(ang) * r;
+        const ls = r * (0.25 + Math.random() * 0.25);
+        const lr = r * 0.35;
+        ctx.fillStyle = `rgba(255, 120, 30, ${alpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // expanding shockwave ring
+      ctx.strokeStyle = `rgba(255, 230, 180, ${alpha * 0.7})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r * 1.15 + (1 - age) * 18, 0, Math.PI * 2);
+      ctx.stroke();
+      // flying embers (with gravity), glowing
+      for (const p of e.embers) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 1;
+        const pa = Math.min(1, p.life / 6) * alpha;
+        if (pa <= 0) continue;
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = pa;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   getPos() {
@@ -579,6 +658,15 @@ class Duck {
     ctx.beginPath();
     ctx.ellipse(hx + facing*headR*0.8 + facing*billLen*0.28, hy + headR*0.25, 1.6, 1.1, facing*0.4, 0, Math.PI*2);
     ctx.fill();
+    // 3D volume on the bill: bright top (lighted) + dark underside shadow
+    ctx.fillStyle = "rgba(255, 220, 150, 0.55)";
+    ctx.beginPath();
+    ctx.ellipse(hx + facing*headR*0.85, hy + headR*0.25 - s*0.06, billLen*0.4, s*0.03, facing*0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(90, 30, 0, 0.4)";
+    ctx.beginPath();
+    ctx.ellipse(hx + facing*headR*0.85 + facing*billLen*0.2, hy + headR*0.25 + s*0.08, billLen*0.55, s*0.03, facing*0.2, 0, Math.PI*2);
+    ctx.fill();
 
     // cheek blaze / crown highlight on green head
     ctx.fillStyle = "rgba(20,110,70,0.4)";
@@ -770,27 +858,7 @@ class Duck {
         ctx.fill();
       }
 
-      for (const e of this.explosions) {
-        const alpha = Math.min(1, e.life / 12);
-        const grow = (18 - e.life) * 1.2;
-        ctx.fillStyle = `rgba(255, 90, 30, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.size + grow * 0.5, 0, Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.8})`;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.6, 0, Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.3, 0, Math.PI*2);
-        ctx.fill();
-        ctx.strokeStyle = `rgba(255, 140, 30, ${alpha})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.size + grow, 0, Math.PI*2);
-        ctx.stroke();
-      }
+      this.drawExplosions();
     } else if (this.weapon === "tank") {
       const tw = s * 2.6;
       const th = s * 1.2;
@@ -856,17 +924,8 @@ class Duck {
         ctx.fillStyle = "#FFCC00";
         ctx.beginPath(); ctx.arc(sh.x, sh.y, 2, 0, Math.PI*2); ctx.fill();
       }
-      // explosions
-      for (const e of this.explosions) {
-        const alpha = Math.min(1, e.life / 12);
-        const grow = (18 - e.life) * 1.2;
-        ctx.fillStyle = `rgba(255, 90, 30, ${alpha})`;
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.size + grow * 0.5, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.8})`;
-        ctx.beginPath(); ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.6, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.beginPath(); ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.3, 0, Math.PI*2); ctx.fill();
-      }
+      // explosions (realistic fireball + smoke + embers)
+      this.drawExplosions();
     } else {
       const knifeAngle = (this.angle + 45) * Math.PI / 180;
       const kx = dx + s * 0.4;
@@ -1035,6 +1094,22 @@ function drawBackground(tick, duckTick) {
   grd.addColorStop(1, "#141008");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 250, W, H - 250);
+  // --- perspective grid on the ground (receding floor = 3D depth cue) ---
+  ctx.strokeStyle = "rgba(0,0,0,0.18)";
+  ctx.lineWidth = 1;
+  // horizontal depth lines, spacing grows toward the viewer
+  let yh = 250;
+  let ygap = 14;
+  for (let k = 0; k < 8 && yh < H; k++) {
+    ctx.beginPath(); ctx.moveTo(0, yh); ctx.lineTo(W, yh); ctx.stroke();
+    yh += ygap; ygap *= 1.5;
+  }
+  // converging vertical lines toward a vanishing point at horizon center
+  const vpx = W / 2, vpy = 240;
+  for (let k = -6; k <= 6; k++) {
+    const xb = vpx + k * 90;
+    ctx.beginPath(); ctx.moveTo(vpx + (xb - vpx) * 0.04, vpy); ctx.lineTo(xb, H); ctx.stroke();
+  }
   // rocky ground top edge (jagged soil line) + layered dirt shading
   ctx.fillStyle = "#2a2114";
   ctx.beginPath();
