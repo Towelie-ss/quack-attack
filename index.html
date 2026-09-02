@@ -72,45 +72,188 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+const splashes = [];
+function addSplash(x, y) {
+  for (let i = 0; i < 5; i++) {
+    splashes.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 6,
+      vy: -Math.random() * 5 - 2,
+      life: 20 + Math.random() * 15,
+      size: 3 + Math.random() * 4
+    });
+  }
+}
+
 // ---------- Ducks ----------
 class Duck {
   constructor() {
-    this.x = 50 + Math.random() * (W - 100);
-    this.y = 250 + Math.random() * (H - 300);
+    this.x = 150 + Math.random() * (W - 300);
+    this.y = 340 + Math.random() * 100;
     this.colors = ["#FFD700","#FFA500","#FFB347","#FFCC00","#FFE066"];
     this.color = this.colors[Math.floor(Math.random()*this.colors.length)];
     this.beaks = ["#FF8C00","#FF6600","#FF4500"];
     this.beak = this.beaks[Math.floor(Math.random()*this.beaks.length)];
-    this.size = 18 + Math.random() * 10;
+    this.size = 22 + Math.random() * 10;
     this.phase = Math.random() * Math.PI * 2;
     this.speed = 0.03 + Math.random() * 0.04;
     this.vx = (Math.random() * 0.6) - 0.3;
     this.style = ["bounce","spin","wiggle","wave"][Math.floor(Math.random()*4)];
     this.angle = 0;
     this.foot = Math.random() * Math.PI * 2;
+    this.stains = [];
+    for (let i = 0; i < 6 + Math.floor(Math.random() * 6); i++) {
+      this.stains.push(this.makeStain());
+    }
+    this.hitTimer = 0;
+    this.weapon = "knife";
+    this.shootTimer = 0;
+    this.recoil = 0;
+    this.pellets = [];
+    this.rockets = [];
+  }
+
+  makeStain() {
+    return {
+      x: (Math.random() - 0.5) * 2,
+      y: (Math.random() - 0.5) * 1.6,
+      size: 5 + Math.random() * 8,
+      opacity: 0.7 + Math.random() * 0.3
+    };
   }
 
   update(tick) {
     const t = tick * this.speed + this.phase;
     this.foot += 0.15;
     this.x += this.vx;
-    if (this.x < 40) { this.vx = Math.abs(this.vx); this.x = 40; }
-    if (this.x > W - 40) { this.vx = -Math.abs(this.vx); this.x = W - 40; }
+    if (this.x < 80) { this.vx = Math.abs(this.vx); this.x = 80; }
+    if (this.x > W - 80) { this.vx = -Math.abs(this.vx); this.x = W - 80; }
     if (this.style === "bounce") { this.oy = Math.abs(Math.sin(t*2))*25; this.angle = Math.sin(t*3)*15; }
     else if (this.style === "spin") { this.oy = Math.abs(Math.sin(t))*10; this.angle = (tick*2)%360; }
     else if (this.style === "wiggle") { this.oy = Math.sin(t*1.5)*8; this.angle = Math.sin(t*4)*25; }
     else { this.oy = Math.abs(Math.sin(t))*15; this.angle = Math.sin(t*2.5)*20; }
+
+    if (Math.random() < 0.03) {
+      this.stains.push(this.makeStain());
+      if (this.stains.length > 20) this.stains.shift();
+      if (Math.random() < 0.15) addSplash(this.x, this.y);
+    }
+
+    if (this.hitTimer > 0) this.hitTimer--;
+
+    if (this.weapon === "shotgun") {
+      if (this.shootTimer > 0) this.shootTimer--;
+      if (this.recoil > 0) {
+        this.recoil *= 0.8;
+        if (this.recoil < 0.1) this.recoil = 0;
+      }
+      if (Math.random() < 0.02) {
+        this.shootTimer = 8;
+        this.recoil = 3;
+        for (let i = 0; i < 5; i++) {
+          const ang = (this.angle + 30 + (Math.random() - 0.5) * 20) * Math.PI / 180;
+          this.pellets.push({
+            x: this.x + Math.cos(ang) * this.size * 1.2,
+            y: (this.y - this.oy) + Math.sin(ang) * this.size * 1.2,
+            vx: Math.cos(ang) * 4,
+            vy: Math.sin(ang) * 4,
+            life: 15
+          });
+        }
+      }
+      for (let i = this.pellets.length - 1; i >= 0; i--) {
+        const p = this.pellets[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) this.pellets.splice(i, 1);
+      }
+    }
+
+    if (this.weapon === "rocket_launcher") {
+      if (this.shootTimer > 0) this.shootTimer--;
+      if (this.recoil > 0) {
+        this.recoil *= 0.85;
+        if (this.recoil < 0.1) this.recoil = 0;
+      }
+      if (Math.random() < 0.008) {
+        this.shootTimer = 20;
+        this.recoil = 8;
+        const ang = (this.angle + 20) * Math.PI / 180;
+        this.rockets.push({
+          x: this.x + Math.cos(ang) * this.size * 1.5,
+          y: (this.y - this.oy) + Math.sin(ang) * this.size * 1.5,
+          vx: Math.cos(ang) * 3.5,
+          vy: Math.sin(ang) * 3.5,
+          life: 80,
+          trail: [],
+          trailTick: 0
+        });
+      }
+      for (let i = this.rockets.length - 1; i >= 0; i--) {
+        const r = this.rockets[i];
+        r.trailTick++;
+        if (r.trailTick % 3 === 0 && r.trail.length < 8) {
+          r.trail.push({ x: r.x, y: r.y, life: 12 });
+        }
+        r.x += r.vx;
+        r.y += r.vy;
+        r.life--;
+        for (let j = r.trail.length - 1; j >= 0; j--) {
+          r.trail[j].life--;
+          if (r.trail[j].life <= 0) r.trail.splice(j, 1);
+        }
+        let hit = false;
+        for (const other of ducks) {
+          if (other === this) continue;
+          const dist = Math.sqrt((r.x - other.x) ** 2 + (r.y - (other.y - other.oy)) ** 2);
+          if (dist < other.size * 1.2) {
+            other.hitTimer = 25;
+            other.vx = r.vx * 0.8;
+            for (let k = 0; k < 8; k++) other.stains.push(other.makeStain());
+            hit = true;
+            break;
+          }
+        }
+        if (hit || r.life <= 0 || r.x < -50 || r.x > W + 50) this.rockets.splice(i, 1);
+      }
+    }
+  }
+
+  getPos() {
+    return { x: this.x, y: this.y - this.oy };
+  }
+
+  checkCollision(other) {
+    const p1 = this.getPos();
+    const p2 = other.getPos();
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const minDist = (this.size + other.size) * 0.8;
+    if (dist < minDist && dist > 0) {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      this.vx = -nx * 1.5;
+      other.vx = nx * 1.5;
+      const overlap = minDist - dist;
+      this.x -= nx * overlap * 0.5;
+      other.x += nx * overlap * 0.5;
+      this.hitTimer = 15;
+      other.hitTimer = 15;
+      return true;
+    }
+    return false;
   }
 
   draw(tick) {
-    const s = this.size, dx = this.x, dy = this.y - this.oy;
-    // shadow
+    const s = this.size, dx = this.x - ((this.weapon === "shotgun" || this.weapon === "rocket_launcher") ? this.recoil : 0), dy = this.y - this.oy;
     ctx.fillStyle = "#555";
     ctx.beginPath();
     ctx.ellipse(dx, this.y + s*0.9, s*0.8, 4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // feet
     const fo = Math.sin(this.foot)*5;
     ctx.strokeStyle = this.beak;
     ctx.lineWidth = 2;
@@ -126,7 +269,6 @@ class Duck {
       ctx.stroke();
     }
 
-    // body
     ctx.fillStyle = this.color;
     ctx.strokeStyle = "#CC8800";
     ctx.lineWidth = 2;
@@ -134,15 +276,36 @@ class Duck {
     ctx.ellipse(dx, dy, s, s*0.6, 0, 0, Math.PI*2);
     ctx.fill(); ctx.stroke();
 
-    // head
+    for (const stain of this.stains) {
+      const sx = dx + stain.x * s * 0.85;
+      const sy = dy + stain.y * s * 0.55;
+      ctx.fillStyle = `rgba(180, 20, 20, ${stain.opacity})`;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, stain.size, stain.size * 0.7, stain.x * 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+
     const a = this.angle * Math.PI/180;
     const hx = dx + Math.cos(a)*s*0.7;
     const hy = dy - s*0.7 + Math.sin(a)*3;
     ctx.beginPath();
     ctx.arc(hx, hy, s*0.45, 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.strokeStyle = "#CC8800";
+    ctx.stroke();
 
-    // eye
+    for (const stain of this.stains) {
+      if (Math.abs(stain.y + 0.7) < 0.5 && Math.abs(stain.x - Math.cos(a)*0.7) < 0.6) {
+        const sx = hx + stain.x * s * 0.3;
+        const sy = hy + (stain.y + 0.7) * s * 0.3;
+        ctx.fillStyle = `rgba(180, 20, 20, ${stain.opacity})`;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, stain.size * 0.6, stain.size * 0.4, stain.x, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.arc(hx + s*0.15, hy - s*0.1, 3, 0, Math.PI*2);
@@ -152,7 +315,6 @@ class Duck {
     ctx.arc(hx + s*0.15 - 1, hy - s*0.1 - 1, 1, 0, Math.PI*2);
     ctx.fill();
 
-    // beak
     const dir = Math.cos(a);
     const bx = hx + dir*s*0.5, by = hy + s*0.1;
     ctx.fillStyle = this.beak;
@@ -164,7 +326,6 @@ class Duck {
     ctx.closePath();
     ctx.fill(); ctx.stroke();
 
-    // wing
     const ww = Math.sin(this.foot)*8;
     const wx = dx - s*0.3, wy = dy - s*0.1 + ww;
     ctx.strokeStyle = "#CC8800";
@@ -173,11 +334,238 @@ class Duck {
     ctx.arc(wx, wy, s*0.5, Math.PI*0.65, Math.PI*0.35, true);
     ctx.stroke();
 
-    // blush
+    if (this.weapon === "shotgun") {
+      const knifeAngle = (this.angle + 30) * Math.PI / 180;
+      const kx = dx + s * 0.3;
+      const ky = dy + ww - s * 0.1;
+      const klen = s * 1.4;
+      const handleLen = klen * 0.3;
+      const barrelLen = klen * 0.7;
+      const hx1 = kx + Math.cos(knifeAngle) * handleLen;
+      const hy1 = ky + Math.sin(knifeAngle) * handleLen;
+      const bx1 = hx1 + Math.cos(knifeAngle) * barrelLen;
+      const by1 = hy1 + Math.sin(knifeAngle) * barrelLen;
+      const perpX = Math.cos(knifeAngle + Math.PI / 2) * 3;
+      const perpY = Math.sin(knifeAngle + Math.PI / 2) * 3;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#6B3410";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(kx, ky);
+      ctx.lineTo(hx1, hy1);
+      ctx.stroke();
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(hx1, hy1);
+      ctx.lineTo(bx1, by1);
+      ctx.stroke();
+      ctx.strokeStyle = "#555555";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hx1, hy1);
+      ctx.lineTo(bx1, by1);
+      ctx.stroke();
+      ctx.strokeStyle = "#222222";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(bx1 - perpX, by1 - perpY);
+      ctx.lineTo(bx1 + perpX, by1 + perpY);
+      ctx.stroke();
+      const pumpX = hx1 + Math.cos(knifeAngle) * barrelLen * 0.4;
+      const pumpY = hy1 + Math.sin(knifeAngle) * barrelLen * 0.4;
+      ctx.strokeStyle = "#8B4513";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(pumpX - perpX * 1.5, pumpY - perpY * 1.5);
+      ctx.lineTo(pumpX + perpX * 1.5, pumpY + perpY * 1.5);
+      ctx.stroke();
+
+      if (this.shootTimer > 0) {
+        const flashSize = s * 0.6;
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath();
+        ctx.arc(bx1, by1, flashSize, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFA500";
+        ctx.beginPath();
+        ctx.arc(bx1, by1, flashSize * 0.6, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(bx1, by1, flashSize * 0.3, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      for (const p of this.pellets) {
+        ctx.fillStyle = "#FF4500";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1, 0, Math.PI*2);
+        ctx.fill();
+      }
+    } else if (this.weapon === "rocket_launcher") {
+      const rlAngle = (this.angle + 20) * Math.PI / 180;
+      const kx = dx + s * 0.2;
+      const ky = dy + ww - s * 0.15;
+      const rlLen = s * 1.8;
+      const tx1 = kx + Math.cos(rlAngle) * rlLen;
+      const ty1 = ky + Math.sin(rlAngle) * rlLen;
+      const perpX = Math.cos(rlAngle + Math.PI / 2) * 4;
+      const perpY = Math.sin(rlAngle + Math.PI / 2) * 4;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#6B3410";
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(kx, ky);
+      ctx.lineTo(kx + Math.cos(rlAngle) * rlLen * 0.25, ky + Math.sin(rlAngle) * rlLen * 0.25);
+      ctx.stroke();
+      ctx.strokeStyle = "#2F4F2F";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(kx + Math.cos(rlAngle) * rlLen * 0.2, ky + Math.sin(rlAngle) * rlLen * 0.2);
+      ctx.lineTo(tx1, ty1);
+      ctx.stroke();
+      ctx.strokeStyle = "#3A5F3A";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(kx + Math.cos(rlAngle) * rlLen * 0.2, ky + Math.sin(rlAngle) * rlLen * 0.2);
+      ctx.lineTo(tx1, ty1);
+      ctx.stroke();
+      ctx.strokeStyle = "#1A1A1A";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(tx1 - perpX * 1.5, ty1 - perpY * 1.5);
+      ctx.lineTo(tx1 + perpX * 1.5, ty1 + perpY * 1.5);
+      ctx.stroke();
+      const gripX = kx + Math.cos(rlAngle) * rlLen * 0.4;
+      const gripY = ky + Math.sin(rlAngle) * rlLen * 0.4;
+      ctx.strokeStyle = "#5C3317";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(gripX, gripY);
+      ctx.lineTo(gripX - perpX * 2, gripY - perpY * 2);
+      ctx.stroke();
+      const sightX = kx + Math.cos(rlAngle) * rlLen * 0.5;
+      const sightY = ky + Math.sin(rlAngle) * rlLen * 0.5;
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sightX - perpX * 0.5, sightY - perpY * 0.5 - 5);
+      ctx.lineTo(sightX + perpX * 0.5, sightY + perpY * 0.5 - 5);
+      ctx.stroke();
+
+      if (this.shootTimer > 12) {
+        const flashSize = s * 1.0;
+        ctx.fillStyle = "#FF4500";
+        ctx.beginPath();
+        ctx.arc(tx1, ty1, flashSize, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath();
+        ctx.arc(tx1, ty1, flashSize * 0.6, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(tx1, ty1, flashSize * 0.3, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      for (const r of this.rockets) {
+        for (const t of r.trail) {
+          const alpha = t.life / 20;
+          const tSize = 4 + (1 - alpha) * 6;
+          ctx.fillStyle = `rgba(136, 136, 136, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, tSize, 0, Math.PI*2);
+          ctx.fill();
+        }
+        const rAng = Math.atan2(r.vy, r.vx);
+        const rlen = 12;
+        const rpX = Math.cos(rAng + Math.PI / 2) * 4;
+        const rpY = Math.sin(rAng + Math.PI / 2) * 4;
+        const noseX = r.x + Math.cos(rAng) * rlen;
+        const noseY = r.y + Math.sin(rAng) * rlen;
+        const tailX = r.x - Math.cos(rAng) * rlen * 0.5;
+        const tailY = r.y - Math.sin(rAng) * rlen * 0.5;
+        ctx.fillStyle = "#CC0000";
+        ctx.beginPath();
+        ctx.moveTo(noseX, noseY);
+        ctx.lineTo(r.x + rpX, r.y + rpY);
+        ctx.lineTo(r.x - rpX, r.y - rpY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#555555";
+        ctx.beginPath();
+        ctx.moveTo(r.x + rpX, r.y + rpY);
+        ctx.lineTo(r.x - rpX, r.y - rpY);
+        ctx.lineTo(tailX - rpX * 0.7, tailY - rpY * 0.7);
+        ctx.lineTo(tailX + rpX * 0.7, tailY + rpY * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        const flameSize = 6 + Math.random() * 4;
+        ctx.fillStyle = "#FF6600";
+        ctx.beginPath();
+        ctx.arc(tailX, tailY, flameSize, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#FFCC00";
+        ctx.beginPath();
+        ctx.arc(tailX, tailY, flameSize * 0.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    } else {
+      const knifeAngle = (this.angle + 45) * Math.PI / 180;
+      const kx = dx + s * 0.4;
+      const ky = dy + ww;
+      const klen = s * 0.7;
+      const handleLen = klen * 0.35;
+      const bladeLen = klen * 0.65;
+      const hx1 = kx + Math.cos(knifeAngle) * handleLen;
+      const hy1 = ky + Math.sin(knifeAngle) * handleLen;
+      const bx1 = hx1 + Math.cos(knifeAngle) * bladeLen;
+      const by1 = hy1 + Math.sin(knifeAngle) * bladeLen;
+      const perpX = Math.cos(knifeAngle + Math.PI / 2) * 2;
+      const perpY = Math.sin(knifeAngle + Math.PI / 2) * 2;
+      ctx.strokeStyle = "#8B4513";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(kx, ky);
+      ctx.lineTo(hx1, hy1);
+      ctx.stroke();
+      ctx.strokeStyle = "#C0C0C0";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(hx1, hy1);
+      ctx.lineTo(bx1, by1);
+      ctx.stroke();
+      ctx.strokeStyle = "#E0E0E0";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx1 - perpX, by1 - perpY);
+      ctx.lineTo(bx1 + perpX, by1 + perpY);
+      ctx.stroke();
+    }
+
     ctx.fillStyle = "#FF9999";
     ctx.beginPath();
     ctx.ellipse(hx, hy + s*0.12, s*0.15, s*0.08, 0, 0, Math.PI*2);
     ctx.fill();
+
+    if (this.hitTimer > 0) {
+      for (let i = 0; i < 3; i++) {
+        const ang = (this.hitTimer * 40 + i * 120) * Math.PI / 180;
+        const starX = dx + Math.cos(ang) * s * 1.2;
+        const starY = (dy - s * 0.3) + Math.sin(ang) * s * 0.8;
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "bold 14px Helvetica";
+        ctx.fillText("*", starX, starY);
+      }
+    }
   }
 }
 
@@ -185,9 +573,8 @@ class Duck {
 function drawBackground(tick, duckTick) {
   const t = duckTick * 0.05;
   ctx.fillStyle = "#87CEEB";
-  ctx.fillRect(0, 0, W, 180);
+  ctx.fillRect(0, 0, W, 200);
 
-  // sun
   ctx.fillStyle = "#FFE84D";
   ctx.strokeStyle = "#FFD700";
   ctx.lineWidth = 2;
@@ -203,7 +590,6 @@ function drawBackground(tick, duckTick) {
   ctx.fill();
   ctx.stroke();
 
-  // clouds
   ctx.fillStyle = "white";
   for (const [cx,cy] of [[200,60],[500,40],[680,80]]) {
     for (const [dx,dy] of [[-20,0],[0,-10],[20,0],[-10,5],[10,5]]) {
@@ -213,35 +599,33 @@ function drawBackground(tick, duckTick) {
     }
   }
 
-  // hills & ground
   ctx.fillStyle = "#4A8F3F";
   ctx.strokeStyle = "#3D7A34";
   ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(-50, 250, 190, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(500, 270, 250, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-50, 280, 190, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(500, 300, 250, 0, Math.PI*2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "#5AA84A";
-  ctx.fillRect(0, 180, W, H-180);
-  ctx.fillStyle = "#3D7A34";
-  ctx.fillRect(0, H-40, W, 40);
+  ctx.fillRect(0, 200, W, H-200);
 
-  // pond
-  ctx.fillStyle = "#3498DB";
-  ctx.strokeStyle = "#2980B9";
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(400, H, 250, 130, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#5DADE2";
-  ctx.beginPath(); ctx.ellipse(400, H, 150, 60, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = "#8B0000";
+  ctx.strokeStyle = "#5C0000";
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(W/2, H-60, 320, 140, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#A52A2A";
+  ctx.beginPath(); ctx.ellipse(W/2, H-50, 260, 110, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#CD5C5C";
+  ctx.beginPath(); ctx.ellipse(W/2, H-40, 180, 70, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#E06060";
+  ctx.beginPath(); ctx.ellipse(W/2, H-30, 100, 35, 0, 0, Math.PI*2); ctx.fill();
 
-  // ripples
-  ctx.strokeStyle = "#85C1E9";
-  ctx.lineWidth = 1;
-  for (let i=0;i<3;i++) {
-    const rx = 400 + Math.sin(t+i)*50;
-    const ry = 430 + Math.cos(t+i*2)*20;
-    ctx.beginPath(); ctx.ellipse(rx, ry, 30+i*10, 8, 0, 0, Math.PI*2); ctx.stroke();
+  for (let i=0;i<8;i++) {
+    const rx = W/2 + Math.sin(t+i*0.7)*120;
+    const ry = H-60 + Math.cos(t+i*0.5)*30;
+    ctx.strokeStyle = `rgba(255, 100, 100, ${0.4 + Math.sin(t+i)*0.2})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(rx, ry, 25+i*4, 6, 0, 0, Math.PI*2); ctx.stroke();
   }
 
-  // sparkles
   for (const s of sparkles) {
     s.life -= 1;
     if (s.life <= 0) { sparkles.splice(sparkles.indexOf(s), 1); continue; }
@@ -250,14 +634,27 @@ function drawBackground(tick, duckTick) {
     ctx.fillText("*", s.x, s.y);
   }
 
-  // title
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    const sp = splashes[i];
+    sp.x += sp.vx;
+    sp.y += sp.vy;
+    sp.vy += 0.3;
+    sp.life -= 1;
+    if (sp.life <= 0) { splashes.splice(i, 1); continue; }
+    const alpha = sp.life / 35;
+    ctx.fillStyle = `rgba(180, 30, 30, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+
   ctx.fillStyle = "#2C3E50";
   ctx.font = "bold 28px Helvetica";
   ctx.textAlign = "center";
-  ctx.fillText("Quack Attack!", W/2, 140);
+  ctx.fillText("Quack Attack!", W/2, 160);
   ctx.font = "10px Helvetica";
   ctx.fillStyle = "#555";
-  ctx.fillText("Click anywhere for new dance!", W/2, 170);
+  ctx.fillText("Click anywhere for new dance!", W/2, 185);
 }
 
 const sparkles = [];
@@ -265,7 +662,7 @@ function addSparkle() {
   if (Math.random() < 0.3) {
     sparkles.push({
       x: 50 + Math.random()*(W-100),
-      y: 200 + Math.random()*(H-250),
+      y: 250 + Math.random()*(H-350),
       life: 20,
       color: ["#FFE84D","#FF69B4","#00FFFF","#FF6347"][Math.floor(Math.random()*4)]
     });
@@ -280,7 +677,6 @@ function ensureAudio() {
 function makeMelody(volume) {
   ensureAudio();
   const sr = audioCtx.sampleRate;
-  // note sequence (freq, beats)
   const seq = [
     [523.25,0.25],[659.25,0.25],[783.99,0.25],[783.99,0.25],
     [880.00,0.25],[783.99,0.25],[659.25,0.25],[587.33,0.25],
@@ -333,12 +729,15 @@ document.getElementById('play').addEventListener('click', () => { ensureAudio();
 document.getElementById('stop').addEventListener('click', stopMusic);
 document.getElementById('vol').addEventListener('input', (e) => {
   currentVolume = parseInt(e.target.value, 10);
-  if (source) playMusic(); // restart to apply new volume
+  if (source) playMusic();
 });
 
-// ---------- Interaction & loop ----------
 const ducks = [];
 for (let i=0;i<6;i++) ducks.push(new Duck());
+ducks[Math.floor(Math.random()*6)].weapon = "shotgun";
+let rld = Math.floor(Math.random()*6);
+while (ducks[rld].weapon !== "knife") rld = Math.floor(Math.random()*6);
+ducks[rld].weapon = "rocket_launcher";
 
 document.getElementById('vol').addEventListener('input', () => {
   currentVolume = parseInt(document.getElementById('vol').value, 10);
@@ -349,6 +748,7 @@ canvas.addEventListener('click', () => {
   for (const d of ducks) {
     d.phase = Math.random() * Math.PI * 2;
     d.style = ["bounce","spin","wiggle","wave"][Math.floor(Math.random()*4)];
+    addSplash(d.x, d.y + d.size);
   }
 });
 
@@ -357,7 +757,13 @@ function animate() {
   tick++;
   addSparkle();
   drawBackground(tick, tick);
-  for (const d of ducks) { d.update(tick); d.draw(tick); }
+  for (const d of ducks) d.update(tick);
+  for (let i = 0; i < ducks.length; i++) {
+    for (let j = i + 1; j < ducks.length; j++) {
+      ducks[i].checkCollision(ducks[j]);
+    }
+  }
+  for (const d of ducks) d.draw(tick);
   requestAnimationFrame(animate);
 }
 animate();
