@@ -112,6 +112,7 @@ class Duck {
     this.recoil = 0;
     this.pellets = [];
     this.rockets = [];
+    this.explosions = [];
   }
 
   makeStain() {
@@ -216,7 +217,25 @@ class Duck {
             break;
           }
         }
-        if (hit || r.life <= 0 || r.x < -50 || r.x > W + 50) this.rockets.splice(i, 1);
+        const offscreen = r.x < -50 || r.x > W + 50 || r.y < -50 || r.y > H + 50;
+        if (hit || r.life <= 0 || offscreen) {
+          if (!offscreen) {
+            this.explosions.push({
+              x: r.x, y: r.y, life: 18, size: 10 + Math.random() * 6
+            });
+            for (let k = 0; k < 8; k++) this.explosions.push({
+              x: r.x + (Math.random() - 0.5) * 20,
+              y: r.y + (Math.random() - 0.5) * 20,
+              life: 12, size: 3 + Math.random() * 4
+            });
+          }
+          this.rockets.splice(i, 1);
+        }
+      }
+      for (let i = this.explosions.length - 1; i >= 0; i--) {
+        const e = this.explosions[i];
+        e.life--;
+        if (e.life <= 0) this.explosions.splice(i, 1);
       }
     }
   }
@@ -516,6 +535,28 @@ class Duck {
         ctx.beginPath();
         ctx.arc(tailX, tailY, flameSize * 0.5, 0, Math.PI*2);
         ctx.fill();
+      }
+
+      for (const e of this.explosions) {
+        const alpha = Math.min(1, e.life / 12);
+        const grow = (18 - e.life) * 1.2;
+        ctx.fillStyle = `rgba(255, 90, 30, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size + grow * 0.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.6, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 140, 30, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size + grow, 0, Math.PI*2);
+        ctx.stroke();
       }
     } else {
       const knifeAngle = (this.angle + 45) * Math.PI / 180;
