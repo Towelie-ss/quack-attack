@@ -1246,7 +1246,7 @@ function drawBackground(tick, duckTick) {
 
   // Organic (less round) spilled juice pool: irregular blobs + drips instead of
   // nested concentric ellipses. Seeded wobble keeps it stable across frames.
-  const seedRand = (s) => { let x = s >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
+  function seedRand(s) { let x = s >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; }
   const juiceBlob = (cx, cy, rx, ry, color, seed, outline) => {
     const rnd = seedRand(seed), n = 16;
     ctx.fillStyle = color;
