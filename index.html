@@ -1418,10 +1418,20 @@ while (ducks[rld].weapon !== "knife") rld = Math.floor(Math.random()*ducks.lengt
 });
 
 let tick = 0;
+// If any background layer fails on a particular browser, catch it so the
+// ducks (gameplay) still render, and put the error on the title bar to report.
+let __bgErr = null;
 function animate() {
   tick++;
   addSparkle();
-  drawBackground(tick, tick);
+  try { drawBackground(tick, tick); }
+  catch (err) {
+    if (__bgErr !== String(err)) {
+      __bgErr = String(err);
+      console.error("background error:", err);
+      document.title = "BG ERR: " + __bgErr;
+    }
+  }
   for (const d of ducks) d.update(tick);
   for (let i = 0; i < ducks.length; i++) {
     for (let j = i + 1; j < ducks.length; j++) {
