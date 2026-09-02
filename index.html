@@ -9,29 +9,34 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    background: #87CEEB;
+    background: #000;
     font-family: Helvetica, Arial, sans-serif;
     overflow: hidden;
   }
   #wrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    position: relative;
+    width: 100vw;
+    height: 100vh;
   }
   canvas {
+    position: absolute;
     display: block;
-    margin: 0 auto;
-    max-width: 100%;
-    max-height: calc(100% - 44px);
+    top: 0;
+    left: 0;
   }
   #controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
     height: 44px;
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 0 12px;
-    background: #87CEEB;
+    background: rgba(135, 206, 235, 0.85);
     border-top: 2px solid #6bb3e0;
+    z-index: 5;
   }
   button {
     font-size: 14px;
@@ -43,7 +48,7 @@
   }
   button:hover { background: #eef; }
   label { font-size: 13px; }
-  input[type=range] { width: 140px; }
+  input[type=range] { width: 120px; }
 </style>
 </head>
 <body>
@@ -77,12 +82,17 @@ if (typeof ctx.ellipse !== 'function') {
 
 function resize() {
   const availW = window.innerWidth;
-  const availH = window.innerHeight - 44;
-  const scale = Math.min(availW / W, availH / H, 1);
-  canvas.style.width = Math.floor(W * scale) + 'px';
-  canvas.style.height = Math.floor(H * scale) + 'px';
+  const availH = window.innerHeight;
+  const scale = Math.min(availW / W, availH / H);
+  const cw = Math.floor(W * scale);
+  const ch = Math.floor(H * scale);
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
+  canvas.style.left = Math.floor((availW - cw) / 2) + 'px';
+  canvas.style.top = Math.floor((availH - ch) / 2) + 'px';
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
 resize();
 
 const splashes = [];
