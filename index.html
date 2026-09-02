@@ -407,7 +407,7 @@ class Duck {
       for (const s of e.smoke) {
         s.x += s.vx; s.y += s.vy; s.vy += 0.05; s.life -= 1;
         if (s.life <= 0) continue;
-        const sn = s.size + (30 - s.life) * s.grow;
+        const sn = Math.max(1, s.size + (30 - s.life) * s.grow);
         const sa = Math.min(0.5, s.life / 30) * alpha;
         ctx.fillStyle = `rgba(35, 31, 30, ${sa})`;
         ctx.beginPath(); ctx.arc(s.x, s.y, sn, 0, Math.PI * 2); ctx.fill();
