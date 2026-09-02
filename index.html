@@ -1421,6 +1421,7 @@ let tick = 0;
 // If any background layer fails on a particular browser, catch it so the
 // ducks (gameplay) still render, and put the error on the title bar to report.
 let __bgErr = null;
+let __ue = null;
 function animate() {
   tick++;
   addSparkle();
@@ -1432,13 +1433,17 @@ function animate() {
       document.title = "BG ERR: " + __bgErr;
     }
   }
-  for (const d of ducks) d.update(tick);
+  for (const d of ducks) {
+    try { d.update(tick); } catch (err) { if (__ue !== String(err)) { __ue = String(err); document.title = "DUCK ERR: " + __ue; } }
+  }
   for (let i = 0; i < ducks.length; i++) {
     for (let j = i + 1; j < ducks.length; j++) {
-      ducks[i].checkCollision(ducks[j]);
+      try { ducks[i].checkCollision(ducks[j]); } catch (err) { if (__ue !== String(err)) { __ue = String(err); document.title = "DUCK ERR: " + __ue; } }
     }
   }
-  for (const d of ducks) d.draw(tick);
+  for (const d of ducks) {
+    try { d.draw(tick); } catch (err) { if (__ue !== String(err)) { __ue = String(err); document.title = "DUCK ERR: " + __ue; } }
+  }
   requestAnimationFrame(animate);
 }
 animate();
