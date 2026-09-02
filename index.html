@@ -62,6 +62,19 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
+// Polyfill: Canvas2D ellipse() isn't supported on some older browsers/WebViews,
+// which used to throw and leave only the sky+moon drawn. Fall back to arc()+scale().
+if (typeof ctx.ellipse !== 'function') {
+  ctx.ellipse = function (x, y, rx, ry, rot, a0, a1) {
+    this.save();
+    this.translate(x, y);
+    this.rotate(rot);
+    this.scale(1, ry / rx);
+    this.arc(0, 0, rx, a0, a1);
+    this.restore();
+  };
+}
+
 function resize() {
   const availW = window.innerWidth;
   const availH = window.innerHeight - 44;
