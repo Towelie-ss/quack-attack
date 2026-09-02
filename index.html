@@ -884,17 +884,47 @@ function drawBackground(tick, duckTick) {
   juiceBlob(370, H-115, 30, 10, "#CD5C5C", 67);
   juiceBlob(560, H-100, 35, 9, "#A52A2A", 73);
 
-  // static juice splash droplets scattered around the pool edge
-  const splashSeed = seedRand(99);
-  for (let i = 0; i < 22; i++) {
-    const a = i / 22 * Math.PI * 2 + splashSeed() * 0.3;
-    const rr = 1.0 + (splashSeed() - 0.5) * 0.35;
-    const sx = W/2 + Math.cos(a) * 300 * rr;
-    const sy = H-45 + Math.sin(a) * 120 * rr * 0.9 - Math.abs(splashSeed()) * 25;
-    const rd = 2 + splashSeed() * 4;
-    ctx.fillStyle = ["#8B0000", "#A52A2A", "#CD5C5C", "#7A1B1B"][i % 4];
+  // dramatic juice splash around the pool edge: big splatter blobs, stretched
+  // drips, and a spray of small satellite droplets
+  const sp = seedRand(99);
+  const juicy = ["#8B0000", "#A52A2A", "#CD5C5C", "#7A1B1B", "#B22222"];
+  // big irregular splatter blobs
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2 + sp() * 0.4;
+    const rr = 0.95 + sp() * 0.5;
+    const bx = W/2 + Math.cos(a) * 305 * rr;
+    const by = H-45 + Math.sin(a) * 125 * rr - sp() * 30;
+    ctx.fillStyle = juicy[i % juicy.length];
     ctx.beginPath();
-    ctx.arc(sx, sy, rd, 0, Math.PI * 2);
+    ctx.arc(bx, by, 5 + sp() * 9, 0, Math.PI * 2);
+    ctx.fill();
+    if (sp() < 0.5) {
+      ctx.fillStyle = juicy[(i + 2) % juicy.length];
+      ctx.beginPath();
+      ctx.arc(bx - 2 + sp() * 4, by - 2 + sp() * 4, 2 + sp() * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // stretched drip streaks flying outward
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2 + sp() * 0.5;
+    const rr = 1.1 + sp() * 0.4;
+    const dx = W/2 + Math.cos(a) * 330 * rr;
+    const dy = H-45 + Math.sin(a) * 135 * rr - sp() * 35;
+    ctx.fillStyle = juicy[(i + 3) % juicy.length];
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, 4 + sp() * 7, 1.5 + sp() * 2, a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // spray of small satellite droplets
+  for (let i = 0; i < 30; i++) {
+    const a = sp() * Math.PI * 2;
+    const rr = 1.05 + sp() * 0.7;
+    const sx = W/2 + Math.cos(a) * 315 * rr;
+    const sy = H-45 + Math.sin(a) * 130 * rr - sp() * 40;
+    ctx.fillStyle = juicy[i % juicy.length];
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.5 + sp() * 2.5, 0, Math.PI * 2);
     ctx.fill();
   }
 
