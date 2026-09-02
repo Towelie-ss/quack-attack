@@ -927,84 +927,162 @@ function makeMelody(volume) {
     }
   };
 
-  const guitar = (freq, durSec, amp, drive) => {
+  const lp = (samples, cutoff) => {
+    const rc = 1/(2*Math.PI*cutoff), dt = 1/sr, a = dt/(rc+dt);
+    let prev = 0; const o = new Float32Array(samples.length);
+    for (let i=0;i<samples.length;i++){ prev = prev + (samples[i]-prev)*a; o[i]=prev; }
+    return o;
+  };
+
+  // Distorted palm-muted guitar (double-tracked detune)
+  const chug = (midi, durSec, accent, palm) => {
+    const freq = nf(midi);
     const n = Math.floor(durSec * sr);
-    const s = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const tt = i / sr;
-      let src = Math.sin(2*Math.PI*freq*tt) + 0.5*Math.sin(2*Math.PI*freq*2*tt) + 0.25*Math.sin(2*Math.PI*freq*3*tt);
-      src += 0.4*Math.sin(2*Math.PI*freq*1.004*tt);
-      const env = Math.exp(-tt*18);
-      s[i] = Math.tanh(src * drive * env) * env * amp;
+    const s = new Float32Array(n*2);
+    for (let tr=0; tr<2; tr++) {
+      const det = tr===0 ? 1.0 : 1.003;
+      let prev = 0;
+      for (let i=0;i<n;i++){
+        const tt = i / sr, f = freq*det;
+        let sig;
+        if (palm) sig = Math.sin(2*Math.PI*f*tt) + 0.45*Math.sin(2*Math.PI*f*2*tt);
+        else sig = Math.sin(2*Math.PI*f*tt) + 0.6*Math.sin(2*Math.PI*f*2*tt) + 0.4*Math.sin(2*Math.PI*f*3*tt) + 0.4*Math.sin(2*Math.PI*f*1.5*tt);
+        const env = palm ? Math.exp(-tt*26) : Math.exp(-tt*5);
+        const a = palm ? accent : accent*0.9;
+        let d = Math.tanh(sig*3.5*env*a);
+        d = prev + (d-prev)*0.5; prev = d;
+        s[tr*n+i] = d;
+      }
     }
+    const m = new Float32Array(n);
+    for (let i=0;i<n;i++) m[i] = (s[i]+s[n+i]);
+    return palm ? lp(m, 1100) : m;
+  };
+
+  const bass = (midi, durSec, accent) => {
+    const freq = nf(midi);
+    const n = Math.floor(durSec*sr), s = new Float32Array(n);
+    for (let i=0;i<n;i++){ const tt=i/sr, env=Math.exp(-tt*12); s[i]=(Math.sin(2*Math.PI*freq*tt)+0.25*Math.sin(2*Math.PI*freq*2*tt))*env*accent; }
     return s;
   };
 
   const kick = () => {
-    const d = 0.14, n = Math.floor(d*sr), s = new Float32Array(n);
-    for (let i=0;i<n;i++){ const tt=i/sr; const f=150*Math.exp(-tt*22)+38; const env=Math.exp(-tt*30); s[i]=Math.sin(2*Math.PI*f*tt)*env; }
-    return s;
-  };
-  const snare = () => {
-    const d=0.16, n=Math.floor(d*sr), s=new Float32Array(n);
-    for (let i=0;i<n;i++){ const tt=i/sr; const no=rnd()*2-1; const env=Math.exp(-tt*28); const low=Math.sin(2*Math.PI*190*tt)*Math.exp(-tt*40)*0.8; s[i]=(no*0.8+low)*env; }
-    return s;
-  };
-  const cym = () => {
-    const d=0.35, n=Math.floor(d*sr), s=new Float32Array(n);
-    for (let i=0;i<n;i++){ const tt=i/sr; const env=Math.exp(-tt*9); s[i]=(rnd()*2-1)*env*0.7; }
-    return s;
-  };
-  const scream = (durSec, start, base, growl) => {
-    const n=Math.floor(durSec*sr), s=new Float32Array(n);
+    const d = 0.13, n = Math.floor(d*sr), s = new Float32Array(n);
     for (let i=0;i<n;i++){
-      const tt=i/sr; const no=rnd()*2-1;
-      const wob=2*Math.PI*(base+40*Math.sin(2*Math.PI*6*tt))*tt;
-      const grit=Math.tanh(no*4);
-      const sub=Math.sin(2*Math.PI*70*tt)*0.5;
-      const breath=no*Math.sin(2*Math.PI*180*tt)*0.5;
-      const ei=Math.min(1,tt/0.3); let eo=1; const rem=durSec-tt; if(rem<0.3) eo=rem/0.3;
-      const env=ei*eo;
-      s[i]=Math.tanh((growl*Math.sin(wob)+grit*0.7+sub+breath)*env*2.2);
+      const tt=i/sr;
+      const click=Math.sin(2*Math.PI*(700*Math.exp(-tt*130)+250)*tt)*Math.exp(-tt*140)*0.5;
+      const body=Math.sin(2*Math.PI*(160*Math.exp(-tt*28)+46)*tt)*Math.exp(-tt*26);
+      s[i]=click+body*0.9;
     }
     return s;
   };
+  const snare = () => {
+    const d=0.18, n=Math.floor(d*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){
+      const tt=i/sr, no=rnd()*2-1, env=Math.exp(-tt*32);
+      const crack=Math.sin(2*Math.PI*420*tt)*Math.exp(-tt*110)*0.6;
+      const low=Math.sin(2*Math.PI*200*tt)*Math.exp(-tt*45)*0.8;
+      s[i]=(no*0.8+crack+low)*env;
+    }
+    return s;
+  };
+  const cym = (dur) => {
+    const n=Math.floor(dur*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){ const tt=i/sr, env=Math.exp(-tt*7); s[i]=(rnd()*2-1)*env*0.85; }
+    return s;
+  };
+  const ride = (dur) => {
+    const n=Math.floor(dur*sr), s=new Float32Array(n); let last=0;
+    for (let i=0;i<n;i++){ const tt=i/sr, env=Math.exp(-tt*9), no=rnd()*2-1; s[i]=(no-last)*0.5*env; last=no; }
+    return s;
+  };
 
-  // Deep scream intro
-  add(0, scream(3.0, 0, 85, 0.7), 1.0);
-  add(6.6, cym(), 0.6); // swell
+  const growl = (durSec, start, dark, grit) => {
+    const n=Math.floor(durSec*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){
+      const tt=i/sr, no=rnd()*2-1;
+      const core_f=60+20*Math.sin(2*Math.PI*4*tt);
+      const core=Math.sin(2*Math.PI*core_f*tt);
+      const f1=Math.sin(2*Math.PI*480*tt)*0.5*dark;
+      const f2=Math.sin(2*Math.PI*780*tt)*0.3*(1-dark*0.5);
+      const sub=Math.sin(2*Math.PI*52*tt)*0.6;
+      const grits=Math.tanh(no*6)*grit;
+      const ei=Math.min(1,tt/0.06); let eo=1; const rem=durSec-tt; if(rem<0.12) eo=rem/0.12;
+      const env=ei*eo;
+      s[i]=Math.tanh((core+f1+f2+sub+grits*0.5+no*0.25)*env*2.2);
+    }
+    add(start, s);
+  };
 
-  const BPM = 100, spb = 60/BPM, sixteenth = spb/4;
-  const riff = [40,40,40,38,40,40,38,40,40,38,40,40,45,45,45,45];
-  const t0 = 2.8;
-  add(t0, kick(), 1.1); add(t0, snare(), 0.9); add(t0, cym(), 0.8);
-  add(t0, guitar(nf(16), 0.7, 1.0, 4), 1.0); // E0 drop
+  // ================= ARRANGEMENT =================
+  const BPM = 110, Q = 60/BPM, S = Q/4;
 
-  let pos = t0 + 0.4, index = 0;
-  while (pos < 13.5) {
-    const f = nf(riff[index % riff.length]);
-    const hd = sixteenth*0.92;
-    const ampN = index%4===0 ? 0.55 : 0.42;
-    add(pos, guitar(f, hd, ampN, 3.2), 0.9);
-    if (index%4===0) add(pos+0.002, guitar(nf(riff[index%riff.length]-12), hd, 0.5, 3.2), 0.8);
-    add(pos, kick(), 0.95);
-    if (index%8===0) add(pos, snare(), 0.85);
-    if (index%2===1) add(pos+sixteenth*0.5, kick(), 0.7);
-    if (index%4===1) add(pos, cym(), 0.5);
-    if (index%16===8) add(pos, cym(), 0.7);
-    pos += sixteenth; index++;
+  // Intro: deep guttural scream over building low hits + feedback swell
+  growl(2.6, 0.15, 1.0, 0.7);
+  for (let i=0;i<3;i++) add(1.2+i*0.7, kick(), 0.9);
+  const feedN = Math.floor(2.2*sr), feed = new Float32Array(feedN);
+  for (let i=0;i<feedN;i++){ const tt=i/sr, sw=tt/2.2, f=55+sw*30; feed[i]=Math.tanh(Math.sin(2*Math.PI*f*tt)*sw*3); }
+  add(0.8, feed, 0.7);
+  add(2.9, cym(0.7), 0.7); add(2.9, kick(), 1.0);
+
+  // Blast-beat intro riff (3.0-4.8s)
+  const roots = [31,31,31,31, 34,34,31,31, 29,29,31,31, 34,34,34,36];
+  let t0 = 3.0;
+  for (let bar=0; bar<2; bar++){
+    for (let n16=0; n16<16; n16++){
+      const t = t0 + (bar*16+n16)*S, midi = roots[n16];
+      const acc = n16%4===0 ? 1.2 : 0.8;
+      add(t, chug(midi, S*0.9, acc, true), 0.75);
+      add(t, bass(midi, S*0.9, acc*0.8), 0.7);
+      add(t, kick(), 0.95);
+      if (n16%4===2) add(t, snare(), 0.9);
+      if (n16%2===0) add(t, ride(S*0.9), 0.4);
+    }
+  }
+  t0 = 3.0 + 32*S;
+
+  // Main heavy riff: double-bass 16ths + chug (to ~8s)
+  const riff = [31,31,31,34, 29,29,31,31, 34,34,31,29, 31,31,38,38];
+  while (t0 < 8.0) {
+    for (let n16=0; n16<16; n16++){
+      const t = t0 + n16*S, midi = riff[n16];
+      const acc = n16%4===0 ? 1.3 : 0.75;
+      add(t, chug(midi, S*0.92, acc, true), 0.8);
+      add(t, bass(midi, S*0.92, acc*0.8), 0.75);
+      add(t, kick(), 0.95);
+      if (n16%8===2 || n16%8===6) add(t, snare(), 0.92);
+      if (n16%4===0) add(t, cym(0.4), 0.6);
+    }
+    t0 += 16*S;
   }
 
-  // Breakdown
-  let brk = 8.0;
-  while (brk < 11.0) {
-    add(brk, guitar(nf(16), 0.5, 0.9, 4), 1.0);
-    add(brk, kick(), 1.0); add(brk, snare(), 0.9);
-    add(brk+0.25, kick(), 0.9); add(brk+0.5, snare(), 0.9);
-    brk += 0.5;
+  // BREAKDOWN: slow huge open chugs + guttural growl (8.0-11.5s)
+  add(8.0, cym(0.8), 0.8);
+  let bd = 8.2;
+  const bdRoots = [31,26,29,22, 31,26,29,22];
+  let k = 0;
+  while (bd < 11.5) {
+    const midi = bdRoots[k % bdRoots.length];
+    add(bd, chug(midi, Q*0.9, 1.4, false), 0.95);
+    add(bd, bass(midi, Q*0.9, 1.3), 0.85);
+    add(bd, kick(), 1.0); add(bd, snare(), 0.95);
+    add(bd+Q/2, kick(), 0.85); add(bd+Q/2, kick(), 0.85);
+    if (k === 1) growl(2.4, bd, 1.0, 0.8);
+    k++; bd += Q;
   }
-  add(12.0, scream(1.4, 0, 70, 0.8), 1.0); // final guttural scream
 
+  // Final machine-gun double kick + closing scream (11.5-14s)
+  let mg = 11.6;
+  while (mg < 13.6) {
+    add(mg, chug(31, S*0.9, 0.9, true), 0.7);
+    add(mg, kick(), 0.9);
+    add(mg+S/2, kick(), 0.7);
+    mg += S;
+  }
+  growl(1.6, 12.4, 0.6, 0.9);
+
+  // Master: gentle glue saturation + normalize
+  for (let i=0;i<len;i++) out[i] = Math.tanh(out[i]*1.4)*0.95;
   let peak = 1e-9;
   for (let i=0;i<len;i++) peak = Math.max(peak, Math.abs(out[i]));
   const scale = (0.95/peak) * (volume/100);
