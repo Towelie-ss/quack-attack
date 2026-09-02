@@ -354,9 +354,14 @@ class Duck {
 
   draw(tick) {
     const s = this.size, dx = this.x - ((this.weapon === "shotgun" || this.weapon === "rocket_launcher") ? this.recoil : 0), dy = this.y - this.oy;
-    ctx.fillStyle = "#555";
+    // soft 3D ground shadow (darker under the body, fading outward)
+    const sh = ctx.createRadialGradient(dx, this.y + s*0.8, 0, dx, this.y + s*0.8, s*1.3);
+    sh.addColorStop(0, "rgba(0,0,0,0.55)");
+    sh.addColorStop(0.5, "rgba(0,0,0,0.3)");
+    sh.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sh;
     ctx.beginPath();
-    ctx.ellipse(dx, this.y + s*0.9, s*0.8, 4, 0, 0, Math.PI*2);
+    ctx.ellipse(dx, this.y + s*0.8, s*1.3, s*0.28, 0, 0, Math.PI*2);
     ctx.fill();
 
     const a = this.angle * Math.PI/180;
@@ -381,43 +386,61 @@ class Duck {
       }
     }
 
-    // Tail
-    ctx.fillStyle = this.color;
-    ctx.strokeStyle = "#CC8800";
-    ctx.lineWidth = 1;
+    // ---- realistic mallard drake ----
+    // drake curl (upcurled feather on upper tail) + dark tail feathers
     const ty_ = dy + s*0.15;
+    ctx.fillStyle = "#2E2A2A";
     ctx.beginPath();
-    ctx.moveTo(dx - facing*s*0.95, ty_ - s*0.1);
-    ctx.lineTo(dx - facing*s*0.75, ty_);
-    ctx.lineTo(dx - facing*s*0.95, ty_ + s*0.3);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
+    ctx.moveTo(dx - facing*s*0.95, ty_ - s*0.12);
+    ctx.lineTo(dx - facing*s*0.7, ty_ - s*0.02);
+    ctx.lineTo(dx - facing*s*0.95, ty_ + s*0.22);
+    ctx.closePath(); ctx.fill();
+    // drake curl swoosh
+    ctx.strokeStyle = "#1E1A1A";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(dx - facing*s*0.8, ty_ - s*0.06);
+    ctx.quadraticCurveTo(dx - facing*s*1.1, ty_ - s*0.2, dx - facing*s*0.95, ty_ + s*0.05);
+    ctx.stroke();
 
-    // Body (teardrop) with layered feather shading
-    ctx.fillStyle = this.color;
-    ctx.strokeStyle = "#C07820";
-    ctx.lineWidth = 2;
+    // Body: light gray flank (the species is a gray-bodied drake)
+    const bodyC = "#C9CCC9";
+    ctx.fillStyle = bodyC;
+    ctx.strokeStyle = "#6E6E6E";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(dx, dy, s, s*0.75, 0, 0, Math.PI*2);
+    ctx.ellipse(dx, dy, s, s*0.72, 0, 0, Math.PI*2);
     ctx.fill(); ctx.stroke();
-    // upper back shading
-    ctx.fillStyle = "#3E2A15";
+    // darker gray back shading
+    ctx.fillStyle = "#8F9390";
     ctx.beginPath();
-    ctx.ellipse(dx, dy - s*0.2, s*0.72, s*0.4, 0, Math.PI * 0.7, Math.PI * 1.5);
+    ctx.ellipse(dx, dy - s*0.25, s*0.7, s*0.34, 0, 0, Math.PI*2);
     ctx.fill();
-    // mid feather banding
-    ctx.fillStyle = "#6B4A1E";
+    // fine flank feather texture (short curved strokes)
+    ctx.strokeStyle = "rgba(60,60,60,0.35)";
+    ctx.lineWidth = 1;
+    for (let f = 0; f < 8; f++) {
+      const fx = dx + (f - 4) * s*0.18, fy = dy - s*0.1 + Math.abs(f-4)*s*0.05;
+      ctx.beginPath();
+      ctx.moveTo(fx - s*0.06, fy);
+      ctx.quadraticCurveTo(fx, fy - s*0.07, fx + s*0.06, fy);
+      ctx.stroke();
+    }
+    // chestnut breast (toward the head/front)
+    ctx.fillStyle = "#6B3A24";
     ctx.beginPath();
-    ctx.ellipse(dx, dy - s*0.05, s*0.78, s*0.3, 0, Math.PI * 1.0, Math.PI * 1.7);
+    ctx.ellipse(dx + facing*s*0.55, dy - s*0.15, s*0.28, s*0.3, 0, 0, Math.PI*2);
     ctx.fill();
-    // Belly highlight (creamy, more realistic)
-    ctx.fillStyle = "#EADFC0";
+    // white undertail covert patch
+    ctx.fillStyle = "#E8E4DA";
     ctx.beginPath();
-    ctx.ellipse(dx, dy + s*0.42, s*0.5, s*0.32, 0, 0, Math.PI*2);
+    ctx.ellipse(dx - facing*s*0.55, dy + s*0.15, s*0.3, s*0.18, 0, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle = "#D8C9A8";
+    // belly highlight
+    ctx.fillStyle = "#E6E0D4";
     ctx.beginPath();
-    ctx.ellipse(dx + s*0.18, dy + s*0.5, s*0.3, s*0.18, 0, 0, Math.PI*2);
+    ctx.ellipse(dx + facing*s*0.1, dy + s*0.42, s*0.45, s*0.28, 0, 0, Math.PI*2);
     ctx.fill();
 
     // Juice stains on body
@@ -430,23 +453,68 @@ class Duck {
       ctx.fill();
     }
 
-    // Neck + head (curved)
+    // Wing with blue speculum: set at an angle on the flank
+    const ww = Math.sin(this.foot)*8;
+    const wingX = dx - facing*s*0.15, wingY = dy - s*0.1 + ww;
+    // wing silhouette (dark rounded)
+    ctx.fillStyle = "#7A6E5A";
+    ctx.strokeStyle = "#5A4F3C";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(wingX - s*0.3, wingY - s*0.2);
+    ctx.lineTo(wingX + s*0.34, wingY - s*0.1);
+    ctx.lineTo(wingX + s*0.5, wingY + s*0.16);
+    ctx.lineTo(wingX - s*0.16, wingY + s*0.3);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // blue speculum patch (iridescent blue-purple) edged white
+    ctx.fillStyle = "#2E4A9E";
+    ctx.beginPath();
+    ctx.ellipse(wingX + facing*s*0.08, wingY + s*0.05, s*0.3, s*0.16, 0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = "#D8D0C0";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // primary feather strokes
+    ctx.strokeStyle = "#3A342A";
+    ctx.lineWidth = 1;
+    for (let f = 0; f < 5; f++) {
+      const fx = wingX - s*0.08 + f*s*0.15;
+      ctx.beginPath();
+      ctx.moveTo(fx, wingY + f*0.3);
+      ctx.lineTo(fx + s*0.16, wingY + s*0.26 - f*0.5);
+      ctx.stroke();
+    }
+
+    // Neck + head (iridescent green like a mallard drake)
     const hOff = s*0.8;
     const hx = dx + facing*hOff;
     const hy = dy - s*0.5 + Math.sin(a)*3;
-    const headR = s*0.4;
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = s*0.3;
+    const headR = s*0.42;
+    const green = "#1E5A3C";
+    ctx.strokeStyle = green;
+    ctx.lineWidth = s*0.32;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(dx + facing*s*0.1, dy - s*0.2);
+    ctx.moveTo(dx + facing*s*0.1, dy - s*0.15);
     ctx.quadraticCurveTo(hx, hy + s*0.1, hx - facing*s*0.25, hy + s*0.25);
     ctx.stroke();
-    ctx.fillStyle = this.color;
-    ctx.strokeStyle = "#C07820";
-    ctx.lineWidth = 2;
+    // head (green with iridescent sheen)
+    ctx.fillStyle = green;
     ctx.beginPath();
     ctx.arc(hx, hy, headR, 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
+    ctx.fill();
+    // iridescent sheen highlight on head
+    ctx.fillStyle = "rgba(90,200,130,0.45)";
+    ctx.beginPath();
+    ctx.ellipse(hx + facing*headR*0.15, hy - headR*0.35, headR*0.45, headR*0.22, facing*0.4, 0, Math.PI*2);
+    ctx.fill();
+    // crisp white neck ring (collar)
+    ctx.strokeStyle = "#F5F2E8";
+    ctx.lineWidth = s*0.14;
+    ctx.beginPath();
+    ctx.moveTo(hx - facing*headR*0.7, hy + headR*0.6);
+    ctx.lineTo(hx - facing*headR*0.1, hy + headR*0.75);
+    ctx.stroke();
 
     for (const stain of this.stains) {
       if (Math.abs(stain.y + 0.7) < 0.5 && Math.abs(stain.x - facing*0.7) < 0.6) {
@@ -459,30 +527,26 @@ class Duck {
       }
     }
 
-    // Angry mean eye: narrow, bloodshot, hooded by a heavy brow
-    const ex = hx + facing*headR*0.45, ey = hy - headR*0.1;
-    // bloodshot socket
-    ctx.fillStyle = "rgba(150,20,20,0.35)";
+    // Eye: amber-yellow, mean + heavy brow
+    const ex = hx + facing*headR*0.42, ey = hy - headR*0.15;
+    ctx.fillStyle = "rgba(150,20,20,0.3)";
     ctx.beginPath();
-    ctx.ellipse(ex + facing*2, ey, headR*0.4, headR*0.32, 0, 0, Math.PI*2);
+    ctx.ellipse(ex + facing*2, ey, headR*0.4, headR*0.3, 0, 0, Math.PI*2);
     ctx.fill();
-    // angry yellow iris
-    ctx.fillStyle = "#D9C423";
+    ctx.fillStyle = "#E8A93C";
     ctx.beginPath();
-    ctx.ellipse(ex, ey, 3.4, 2.6, -facing*0.3, 0, Math.PI*2);
+    ctx.ellipse(ex, ey, 3.5, 2.7, -facing*0.3, 0, Math.PI*2);
     ctx.fill();
-    // slit pupil
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.ellipse(ex + facing*0.3, ey, 1.4, 2.2, 0, 0, Math.PI*2);
     ctx.fill();
-    // glint
     ctx.fillStyle = "white";
     ctx.beginPath();
     ctx.arc(ex + facing*0.3 - 0.8, ey - 0.9, 0.8, 0, Math.PI*2);
     ctx.fill();
-    // heavy angled brow (V of aggression over the eye)
-    ctx.strokeStyle = "#1d1308";
+    // heavy angled brow
+    ctx.strokeStyle = "#0F3A26";
     ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -491,56 +555,36 @@ class Duck {
     ctx.lineTo(ex + facing*headR*0.55, ey - headR*0.42);
     ctx.stroke();
 
-    // Broad duck bill with nostril
-    const billLen = s*0.28;
+    // Broad orange bill with black tip + nostril
+    const billLen = s*0.3;
     ctx.fillStyle = this.beak;
-    ctx.strokeStyle = "#CC5500";
+    ctx.strokeStyle = "#B45400";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(hx + facing*headR*0.8, hy + headR*0.3 - s*0.12);
-    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.3);
-    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.3 + s*0.06);
-    ctx.lineTo(hx + facing*headR*0.8, hy + headR*0.3 + s*0.12);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#996600";
+    ctx.moveTo(hx + facing*headR*0.8, hy + headR*0.25 - s*0.11);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.25);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.25 + s*0.07);
+    ctx.lineTo(hx + facing*headR*0.8, hy + headR*0.25 + s*0.11);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // black bill tip (mallard hallmark)
+    ctx.fillStyle = "#1A1A1A";
     ctx.beginPath();
-    ctx.arc(hx + facing*headR*0.8 + facing*billLen*0.3, hy + headR*0.3, 1, 0, Math.PI*2);
+    ctx.moveTo(hx + facing*headR*0.8 + facing*billLen*0.55, hy + headR*0.25 - s*0.095);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.25);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.25 + s*0.07);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen*0.55, hy + headR*0.25 + s*0.095);
+    ctx.closePath(); ctx.fill();
+    // nostril
+    ctx.fillStyle = "#8A3D00";
+    ctx.beginPath();
+    ctx.ellipse(hx + facing*headR*0.8 + facing*billLen*0.28, hy + headR*0.25, 1.6, 1.1, facing*0.4, 0, Math.PI*2);
     ctx.fill();
 
-    // Shaped feathered wing
-    const ww = Math.sin(this.foot)*8;
-    const wingX = dx - facing*s*0.25, wingY = dy - s*0.1 + ww;
-    // wing base (dark)
-    ctx.fillStyle = "#9A7A30";
-    ctx.strokeStyle = "#7A5A1E";
-    ctx.lineWidth = 1;
+    // cheek blaze / crown highlight on green head
+    ctx.fillStyle = "rgba(20,110,70,0.4)";
     ctx.beginPath();
-    ctx.moveTo(wingX - s*0.32, wingY - s*0.22);
-    ctx.lineTo(wingX + s*0.32, wingY - s*0.12);
-    ctx.lineTo(wingX + s*0.5, wingY + s*0.18);
-    ctx.lineTo(wingX - s*0.18, wingY + s*0.32);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // lighter wing covering
-    ctx.fillStyle = "#C8A24B";
-    ctx.beginPath();
-    ctx.moveTo(wingX - s*0.28, wingY - s*0.18);
-    ctx.lineTo(wingX + s*0.25, wingY - s*0.1);
-    ctx.lineTo(wingX + s*0.42, wingY + s*0.12);
-    ctx.lineTo(wingX - s*0.14, wingY + s*0.24);
-    ctx.closePath();
+    ctx.ellipse(hx + facing*headR*0.5, hy - headR*0.1, headR*0.3, headR*0.2, facing*0.3, 0, Math.PI*2);
     ctx.fill();
-    // primary feather strokes
-    ctx.strokeStyle = "#5C4218";
-    ctx.lineWidth = 1;
-    for (let f = 0; f < 5; f++) {
-      const fx = wingX - s*0.2 + f*s*0.16;
-      ctx.beginPath();
-      ctx.moveTo(fx, wingY + f*0.4);
-      ctx.lineTo(fx + s*0.14, wingY + s*0.28 - f*0.5);
-      ctx.stroke();
-    }
 
     if (this.weapon === "shotgun") {
       const knifeAngle = (this.angle + 30) * Math.PI / 180;
@@ -906,22 +950,59 @@ function drawBackground(tick, duckTick) {
     ctx.beginPath(); ctx.arc(gx + cx, gy + cy, cr, 0, Math.PI * 2); ctx.fill();
   }
 
-  // --- drifting blood-red cloud wisps ---
-  ctx.fillStyle = "rgba(70, 16, 20, 0.45)";
-  for (let i = 0; i < 7; i++) {
-    const wx = ((i * 175 - (t * 26)) % (W + 240)) - 120;
-    const wy = 36 + i * 26;
-    ctx.beginPath(); ctx.ellipse(wx, wy, 58 + i * 9, 12, 0, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.fillStyle = "rgba(110, 24, 28, 0.3)";
-  for (let i = 0; i < 5; i++) {
-    const wx = ((i * 230 + 60 - (t * 18)) % (W + 260)) - 130;
-    const wy = 90 + i * 30;
-    ctx.beginPath(); ctx.ellipse(wx, wy, 70 + i * 8, 10, 0, 0, Math.PI * 2); ctx.fill();
-  }
+  // --- realistic volumetric clouds (lit by blood moon, wispy edges) ---
+  const drawVolumetricCloud = (cx, cy, w, h, seed, speed) => {
+    const rnd = seedRand(seed);
+    const drift = (t * speed) % (W + w * 3);
+    const px = ((cx + drift) % (W + w * 3)) - w * 1.5;
+    // dark underside (shadow)
+    ctx.fillStyle = "rgba(50, 12, 16, 0.6)";
+    for (let i = 0; i < 6; i++) {
+      const bx = px + (rnd() - 0.5) * w * 0.7;
+      const by = cy + h * 0.3 + rnd() * h * 0.4;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, w * 0.2 + rnd() * w * 0.15, h * 0.3 + rnd() * h * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // mid body
+    ctx.fillStyle = "rgba(90, 22, 28, 0.55)";
+    for (let i = 0; i < 8; i++) {
+      const bx = px + (rnd() - 0.5) * w * 0.9;
+      const by = cy + (rnd() - 0.5) * h * 0.5;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, w * 0.18 + rnd() * w * 0.2, h * 0.25 + rnd() * h * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // bright top (moonlit edge)
+    ctx.fillStyle = "rgba(140, 35, 40, 0.45)";
+    for (let i = 0; i < 5; i++) {
+      const bx = px + (rnd() - 0.5) * w * 0.6;
+      const by = cy - h * 0.2 + rnd() * h * 0.3;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, w * 0.15 + rnd() * w * 0.12, h * 0.2 + rnd() * h * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // wispy tendrils
+    ctx.strokeStyle = "rgba(110, 28, 32, 0.25)";
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const sx = px + (rnd() - 0.5) * w * 0.8;
+      const sy = cy + (rnd() - 0.5) * h * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(sx + rnd() * 40 - 20, sy + rnd() * 10 - 5, sx + rnd() * 60 - 30, sy + rnd() * 8 - 4);
+      ctx.stroke();
+    }
+  };
+  drawVolumetricCloud(100, 50, 180, 35, 1001, 0.3);
+  drawVolumetricCloud(350, 80, 220, 40, 1002, 0.2);
+  drawVolumetricCloud(600, 40, 160, 30, 1003, 0.35);
+  drawVolumetricCloud(200, 110, 190, 32, 1004, 0.25);
+  drawVolumetricCloud(500, 100, 200, 38, 1005, 0.18);
+  drawVolumetricCloud(750, 70, 170, 28, 1006, 0.28);
 
   // --- layered rocky mountain silhouettes (points give sharp peaks) ---
-  const ridge = (base, amp, shift, color) => {
+  const ridge = (base, amp, shift, color, haze) => {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, base + 40);
@@ -934,14 +1015,25 @@ function drawBackground(tick, duckTick) {
     ctx.lineTo(W, base + 40);
     ctx.closePath();
     ctx.fill();
+    if (haze) {  // atmospheric perspective haze band at the base of the range
+      const hg = ctx.createLinearGradient(0, base - 30, 0, base + 40);
+      hg.addColorStop(0, "rgba(50,14,18,0)");
+      hg.addColorStop(1, "rgba(120,30,34,0.35)");
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, base - 30, W, 70);
+    }
   };
   // distant range (lighter, higher peaks), mid range, front dark range
-  ridge(240, 95, 0.0, "#3d1113");
-  ridge(280, 115, 2.1, "#23090b");
-  ridge(310, 85, 4.2, "#100406");
+  ridge(240, 95, 0.0, "#3d1113", true);
+  ridge(280, 115, 2.1, "#23090b", false);
+  ridge(310, 85, 4.2, "#100406", false);
 
-  // --- realistic ground / terrain ---
-  ctx.fillStyle = "#1c1a12";
+  // --- realistic ground / terrain (perspective plane w/ atmospheric depth) ---
+  const grd = ctx.createLinearGradient(0, 250, 0, H);
+  grd.addColorStop(0, "#241e12");
+  grd.addColorStop(0.4, "#1c1a12");
+  grd.addColorStop(1, "#141008");
+  ctx.fillStyle = grd;
   ctx.fillRect(0, 250, W, H - 250);
   // rocky ground top edge (jagged soil line) + layered dirt shading
   ctx.fillStyle = "#2a2114";
