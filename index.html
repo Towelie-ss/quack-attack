@@ -114,6 +114,8 @@ class Duck {
     this.rockets = [];
     this.explosions = [];
     this.shells = [];
+    this.tankDir = Math.random() < 0.5 ? 1 : -1;
+    this.trackPhase = Math.random() * 10;
   }
 
   makeStain() {
@@ -135,6 +137,15 @@ class Duck {
     else if (this.style === "spin") { this.oy = Math.abs(Math.sin(t))*10; this.angle = (tick*2)%360; }
     else if (this.style === "wiggle") { this.oy = Math.sin(t*1.5)*8; this.angle = Math.sin(t*4)*25; }
     else { this.oy = Math.abs(Math.sin(t))*15; this.angle = Math.sin(t*2.5)*20; }
+
+    if (this.weapon === "tank") {
+      // drive the tank across the pond, turning around at the edges
+      this.trackPhase += 0.4;
+      this.x += 2.4 * this.tankDir;
+      if (this.x < 90) this.tankDir = 1;
+      if (this.x > W - 90) this.tankDir = -1;
+      this.vx = 0;
+    }
 
     if (Math.random() < 0.03) {
       this.stains.push(this.makeStain());
@@ -686,7 +697,7 @@ class Duck {
       const tx = dx - 1 * s * 0.2;
       const ty = dy + s * 1.15;
 
-      // tracks
+      // tracks (with scrolling treads so the tank looks like it's driving)
       ctx.fillStyle = "#333333";
       ctx.strokeStyle = "#111111";
       ctx.lineWidth = 2;
@@ -694,6 +705,13 @@ class Duck {
       ctx.strokeRect(tx - tw*0.5, ty - th*0.3, tw, th*0.7);
       ctx.fillStyle = "#4A4A4A";
       ctx.fillRect(tx - tw*0.35, ty + th*0.1, tw*0.7, th*0.25);
+      // rolling tread links scroll with the drive motion
+      ctx.fillStyle = "#202020";
+      const trackW = tw, treads = 8;
+      for (let k = 0; k < treads; k++) {
+        const off = ((k / treads) * trackW + this.trackPhase * 3) % trackW;
+        ctx.fillRect(tx - tw*0.5 + off, ty - th*0.28, 3, th*0.56);
+      }
       // body
       ctx.fillStyle = "#4B6E3A";
       ctx.strokeStyle = "#2E4423";
@@ -944,13 +962,13 @@ document.getElementById('vol').addEventListener('input', (e) => {
 });
 
 const ducks = [];
-for (let i=0;i<6;i++) ducks.push(new Duck());
-ducks[Math.floor(Math.random()*6)].weapon = "shotgun";
-let rld = Math.floor(Math.random()*6);
-while (ducks[rld].weapon !== "knife") rld = Math.floor(Math.random()*6);
+for (let i=0;i<10;i++) ducks.push(new Duck());
+ducks[Math.floor(Math.random()*ducks.length)].weapon = "shotgun";
+let rld = Math.floor(Math.random()*ducks.length);
+while (ducks[rld].weapon !== "knife") rld = Math.floor(Math.random()*ducks.length);
  ducks[rld].weapon = "rocket_launcher";
- let tkd = Math.floor(Math.random()*6);
- while (ducks[tkd].weapon !== "knife") tkd = Math.floor(Math.random()*6);
+ let tkd = Math.floor(Math.random()*ducks.length);
+ while (ducks[tkd].weapon !== "knife") tkd = Math.floor(Math.random()*ducks.length);
  ducks[tkd].weapon = "tank";
  ducks[tkd].size *= 1.2;
 
