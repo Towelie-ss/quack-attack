@@ -113,6 +113,7 @@ class Duck {
     this.pellets = [];
     this.rockets = [];
     this.explosions = [];
+    this.shells = [];
   }
 
   makeStain() {
@@ -149,16 +150,18 @@ class Duck {
         this.recoil *= 0.8;
         if (this.recoil < 0.1) this.recoil = 0;
       }
-      if (Math.random() < 0.02) {
+      const tg = this.nearestTarget();
+      if (tg && Math.random() < 0.06) {
         this.shootTimer = 8;
         this.recoil = 3;
-        for (let i = 0; i < 5; i++) {
-          const ang = (this.angle + 30 + (Math.random() - 0.5) * 20) * Math.PI / 180;
+        const aim = Math.atan2((tg.y - tg.oy) - (this.y - this.oy), tg.x - this.x);
+        for (let i = 0; i < 6; i++) {
+          const ang = aim + (Math.random() - 0.5) * 0.4;
           this.pellets.push({
             x: this.x + Math.cos(ang) * this.size * 1.2,
             y: (this.y - this.oy) + Math.sin(ang) * this.size * 1.2,
-            vx: Math.cos(ang) * 4,
-            vy: Math.sin(ang) * 4,
+            vx: Math.cos(ang) * 5,
+            vy: Math.sin(ang) * 5,
             life: 15
           });
         }
@@ -168,6 +171,17 @@ class Duck {
         p.x += p.vx;
         p.y += p.vy;
         p.life--;
+        for (const other of ducks) {
+          if (other === this) continue;
+          const d = Math.sqrt((p.x - other.x) ** 2 + (p.y - (other.y - other.oy)) ** 2);
+          if (d < other.size * 1.1) {
+            other.hitTimer = 20;
+            other.vx = Math.sign(p.vx) * 2;
+            other.stains.push(other.makeStain());
+            p.life = 0;
+            break;
+          }
+        }
         if (p.life <= 0) this.pellets.splice(i, 1);
       }
     }
@@ -178,16 +192,17 @@ class Duck {
         this.recoil *= 0.85;
         if (this.recoil < 0.1) this.recoil = 0;
       }
-      if (Math.random() < 0.008) {
+      const tg = this.nearestTarget();
+      if (tg && Math.random() < 0.03) {
         this.shootTimer = 20;
         this.recoil = 8;
-        const ang = (this.angle + 20) * Math.PI / 180;
+        const aim = Math.atan2((tg.y - tg.oy) - (this.y - this.oy), tg.x - this.x);
         this.rockets.push({
-          x: this.x + Math.cos(ang) * this.size * 1.5,
-          y: (this.y - this.oy) + Math.sin(ang) * this.size * 1.5,
-          vx: Math.cos(ang) * 3.5,
-          vy: Math.sin(ang) * 3.5,
-          life: 80,
+          x: this.x + Math.cos(aim) * this.size * 1.5,
+          y: (this.y - this.oy) + Math.sin(aim) * this.size * 1.5,
+          vx: Math.cos(aim) * 4,
+          vy: Math.sin(aim) * 4,
+          life: 100,
           trail: [],
           trailTick: 0
         });
@@ -198,6 +213,7 @@ class Duck {
         if (r.trailTick % 3 === 0 && r.trail.length < 8) {
           r.trail.push({ x: r.x, y: r.y, life: 12 });
         }
+        const prevX = r.x, prevY = r.y;
         r.x += r.vx;
         r.y += r.vy;
         r.life--;
@@ -207,30 +223,30 @@ class Duck {
         }
         let hit = false;
         for (const other of ducks) {
-          if (other === this) continue;
-          const dist = Math.sqrt((r.x - other.x) ** 2 + (r.y - (other.y - other.oy)) ** 2);
-          if (dist < other.size * 1.2) {
-            other.hitTimer = 25;
-            other.vx = r.vx * 0.8;
-            for (let k = 0; k < 8; k++) other.stains.push(other.makeStain());
+          if (other === this || other.weapon === "tank") continue;
+          const ox = other.x, oy = other.y - other.oy;
+          for (let st = 0; st < 4; st++) {
+            const sx = prevX + (r.x - prevX) * st / 4;
+            const sy = prevY + (r.y - prevY) * st / 4;
+            if (Math.sqrt((sx - ox) ** 2 + (sy - oy) ** 2) < other.size * 1.4) {
+              this.explode(r.x, r.y);
+              other.hitTimer = 30;
+              other.vx = Math.sign(r.vx) * 3;
+              for (let k = 0; k < 8; k++) other.stains.push(other.makeStain());
+              hit = true;
+              break;
+            }
+          }
+          if (hit) break;
+        }
+        if (!hit) {
+          const offscreen = r.x < -50 || r.x > W + 50 || r.y < -50 || r.y > H + 50;
+          if (r.life <= 0 || offscreen) {
+            if (!offscreen) this.explode(r.x, r.y);
             hit = true;
-            break;
           }
         }
-        const offscreen = r.x < -50 || r.x > W + 50 || r.y < -50 || r.y > H + 50;
-        if (hit || r.life <= 0 || offscreen) {
-          if (!offscreen) {
-            this.explosions.push({
-              x: r.x, y: r.y, life: 18, size: 10 + Math.random() * 6
-            });
-            for (let k = 0; k < 8; k++) this.explosions.push({
-              x: r.x + (Math.random() - 0.5) * 20,
-              y: r.y + (Math.random() - 0.5) * 20,
-              life: 12, size: 3 + Math.random() * 4
-            });
-          }
-          this.rockets.splice(i, 1);
-        }
+        if (hit) this.rockets.splice(i, 1);
       }
       for (let i = this.explosions.length - 1; i >= 0; i--) {
         const e = this.explosions[i];
@@ -238,6 +254,65 @@ class Duck {
         if (e.life <= 0) this.explosions.splice(i, 1);
       }
     }
+
+    if (this.weapon === "tank") {
+      if (this.shootTimer > 0) this.shootTimer--;
+      const tg2 = this.nearestTarget();
+      if (tg2 && Math.random() < 0.05) {
+        this.shootTimer = 12;
+        const aim = Math.atan2((tg2.y - tg2.oy) - (this.y - this.oy), tg2.x - this.x);
+        this.shells.push({
+          x: this.x + Math.cos(aim) * this.size * 2,
+          y: (this.y - this.oy) + Math.sin(aim) * this.size * 2,
+          vx: Math.cos(aim) * 6,
+          vy: Math.sin(aim) * 6,
+          life: 40
+        });
+      }
+      for (let i = this.shells.length - 1; i >= 0; i--) {
+        const s = this.shells[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life--;
+        for (const other of ducks) {
+          if (other === this || other.weapon === "tank") continue;
+          const d = Math.sqrt((s.x - other.x) ** 2 + (s.y - (other.y - other.oy)) ** 2);
+          if (d < other.size * 1.6) {
+            this.explode(s.x, s.y);
+            other.hitTimer = 35;
+            other.vx = Math.sign(s.vx) * 4;
+            for (let k = 0; k < 10; k++) other.stains.push(other.makeStain());
+            s.life = 0;
+            break;
+          }
+        }
+        if (s.life <= 0) this.shells.splice(i, 1);
+      }
+      for (let i = this.explosions.length - 1; i >= 0; i--) {
+        const e = this.explosions[i];
+        e.life--;
+        if (e.life <= 0) this.explosions.splice(i, 1);
+      }
+    }
+  }
+
+  nearestTarget() {
+    let best = null, bestD = Infinity;
+    for (const other of ducks) {
+      if (other === this) continue;
+      const d = Math.hypot((other.x - this.x), (other.y - other.oy) - (this.y - this.oy));
+      if (d < bestD) { bestD = d; best = other; }
+    }
+    return bestD < 500 ? best : null;
+  }
+
+  explode(x, y) {
+    this.explosions.push({ x, y, life: 18, size: 12 });
+    for (let k = 0; k < 10; k++) this.explosions.push({
+      x: x + (Math.random() - 0.5) * 24,
+      y: y + (Math.random() - 0.5) * 24,
+      life: 12, size: 3 + Math.random() * 4
+    });
   }
 
   getPos() {
@@ -605,6 +680,75 @@ class Duck {
         ctx.arc(e.x, e.y, e.size + grow, 0, Math.PI*2);
         ctx.stroke();
       }
+    } else if (this.weapon === "tank") {
+      const tw = s * 2.6;
+      const th = s * 1.2;
+      const tx = dx - 1 * s * 0.2;
+      const ty = dy + s * 1.15;
+
+      // tracks
+      ctx.fillStyle = "#333333";
+      ctx.strokeStyle = "#111111";
+      ctx.lineWidth = 2;
+      ctx.fillRect(tx - tw*0.5, ty - th*0.3, tw, th*0.7);
+      ctx.strokeRect(tx - tw*0.5, ty - th*0.3, tw, th*0.7);
+      ctx.fillStyle = "#4A4A4A";
+      ctx.fillRect(tx - tw*0.35, ty + th*0.1, tw*0.7, th*0.25);
+      // body
+      ctx.fillStyle = "#4B6E3A";
+      ctx.strokeStyle = "#2E4423";
+      ctx.beginPath();
+      ctx.moveTo(tx - tw*0.5, ty - th*0.3);
+      ctx.lineTo(tx + tw*0.5, ty - th*0.3);
+      ctx.lineTo(tx + tw*0.42, ty - th*0.55);
+      ctx.lineTo(tx - tw*0.42, ty - th*0.55);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      // turret
+      ctx.fillStyle = "#557A42";
+      ctx.beginPath();
+      ctx.ellipse(tx, ty - th*0.5, s*0.7, s*0.45, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // barrel aimed at nearest target
+      let aim = 0;
+      const trg = this.nearestTarget();
+      if (trg) aim = Math.atan2((trg.y - trg.oy) - this.y, trg.x - this.x);
+      const bLen = s * 2.4;
+      const mzx = tx + Math.cos(aim) * bLen;
+      const mzy = ty - th*0.3 + Math.sin(aim) * bLen;
+      ctx.strokeStyle = "#2E4423";
+      ctx.lineWidth = 7;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(tx + Math.cos(aim) * s * 0.5, ty - th*0.3 + Math.sin(aim) * s * 0.5);
+      ctx.lineTo(mzx, mzy);
+      ctx.stroke();
+      // muzzle flash
+      if (this.shootTimer > 6) {
+        const fs = s * 0.9;
+        ctx.fillStyle = "#FF4500";
+        ctx.beginPath(); ctx.arc(mzx, mzy, fs, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath(); ctx.arc(mzx, mzy, fs*0.5, 0, Math.PI*2); ctx.fill();
+      }
+      // shells
+      for (const sh of this.shells) {
+        ctx.fillStyle = "#222222";
+        ctx.beginPath(); ctx.arc(sh.x, sh.y, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#FFCC00";
+        ctx.beginPath(); ctx.arc(sh.x, sh.y, 2, 0, Math.PI*2); ctx.fill();
+      }
+      // explosions
+      for (const e of this.explosions) {
+        const alpha = Math.min(1, e.life / 12);
+        const grow = (18 - e.life) * 1.2;
+        ctx.fillStyle = `rgba(255, 90, 30, ${alpha})`;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.size + grow * 0.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.8})`;
+        ctx.beginPath(); ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.beginPath(); ctx.arc(e.x, e.y, (e.size + grow * 0.5) * 0.3, 0, Math.PI*2); ctx.fill();
+      }
     } else {
       const knifeAngle = (this.angle + 45) * Math.PI / 180;
       const kx = dx + s * 0.4;
@@ -765,34 +909,106 @@ function ensureAudio() {
 function makeMelody(volume) {
   ensureAudio();
   const sr = audioCtx.sampleRate;
-  const seq = [
-    [523.25,0.25],[659.25,0.25],[783.99,0.25],[783.99,0.25],
-    [880.00,0.25],[783.99,0.25],[659.25,0.25],[587.33,0.25],
-    [523.25,0.25],[659.25,0.25],[783.99,0.5],
-    [783.99,0.25],[1046.50,0.25],[880.00,0.25],[783.99,0.25],
-    [659.25,0.5],[587.33,0.25],[659.25,0.25],[523.25,1.0],
-  ];
-  const total = seq.reduce((a,[_,d]) => a + d, 0);
-  const len = Math.floor(sr * 12);
+  const dur = 14;
+  const len = Math.floor(sr * dur);
   const buf = audioCtx.createBuffer(1, len, sr);
-  const data = buf.getChannelData(0);
-  for (let i=0;i<len;i++) {
-    const t = i / sr;
-    const seg = t % total;
-    let note = 523.25, acc = 0;
-    for (const [f,d] of seq) {
-      if (seg < acc + d) { note = f; break; }
-      acc += d;
+  const out = buf.getChannelData(0);
+
+  const nf = (semi) => 440 * Math.pow(2, (semi - 69) / 12);
+
+  let phase = 12345;
+  const rnd = () => { phase = (phase * 1103515245 + 12345) % 2147483648; return phase / 2147483648; };
+
+  const add = (startSec, samples, gain) => {
+    const idx = Math.floor(startSec * sr);
+    for (let k = 0; k < samples.length; k++) {
+      const j = idx + k;
+      if (j >= 0 && j < len) out[j] += samples[k] * gain;
     }
-    const pIn = seg - (acc >= seg ? 0 : acc);
-    const attack = 0.02;
-    let env = 1;
-    if (pIn < attack) env = pIn/attack;
-    else if (seg % (1/note) > (1/note) - attack) env = ((1/note) - (seg%(1/note)))/attack;
-    const amp = (volume/100) * 0.4;
-    let v = Math.sin(2*Math.PI*note*t) + 0.4*Math.sin(2*Math.PI*note*2*t);
-    data[i] = Math.max(-1, Math.min(1, v * env * amp));
+  };
+
+  const guitar = (freq, durSec, amp, drive) => {
+    const n = Math.floor(durSec * sr);
+    const s = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const tt = i / sr;
+      let src = Math.sin(2*Math.PI*freq*tt) + 0.5*Math.sin(2*Math.PI*freq*2*tt) + 0.25*Math.sin(2*Math.PI*freq*3*tt);
+      src += 0.4*Math.sin(2*Math.PI*freq*1.004*tt);
+      const env = Math.exp(-tt*18);
+      s[i] = Math.tanh(src * drive * env) * env * amp;
+    }
+    return s;
+  };
+
+  const kick = () => {
+    const d = 0.14, n = Math.floor(d*sr), s = new Float32Array(n);
+    for (let i=0;i<n;i++){ const tt=i/sr; const f=150*Math.exp(-tt*22)+38; const env=Math.exp(-tt*30); s[i]=Math.sin(2*Math.PI*f*tt)*env; }
+    return s;
+  };
+  const snare = () => {
+    const d=0.16, n=Math.floor(d*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){ const tt=i/sr; const no=rnd()*2-1; const env=Math.exp(-tt*28); const low=Math.sin(2*Math.PI*190*tt)*Math.exp(-tt*40)*0.8; s[i]=(no*0.8+low)*env; }
+    return s;
+  };
+  const cym = () => {
+    const d=0.35, n=Math.floor(d*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){ const tt=i/sr; const env=Math.exp(-tt*9); s[i]=(rnd()*2-1)*env*0.7; }
+    return s;
+  };
+  const scream = (durSec, start, base, growl) => {
+    const n=Math.floor(durSec*sr), s=new Float32Array(n);
+    for (let i=0;i<n;i++){
+      const tt=i/sr; const no=rnd()*2-1;
+      const wob=2*Math.PI*(base+40*Math.sin(2*Math.PI*6*tt))*tt;
+      const grit=Math.tanh(no*4);
+      const sub=Math.sin(2*Math.PI*70*tt)*0.5;
+      const breath=no*Math.sin(2*Math.PI*180*tt)*0.5;
+      const ei=Math.min(1,tt/0.3); let eo=1; const rem=durSec-tt; if(rem<0.3) eo=rem/0.3;
+      const env=ei*eo;
+      s[i]=Math.tanh((growl*Math.sin(wob)+grit*0.7+sub+breath)*env*2.2);
+    }
+    return s;
+  };
+
+  // Deep scream intro
+  add(0, scream(3.0, 0, 85, 0.7), 1.0);
+  add(6.6, cym(), 0.6); // swell
+
+  const BPM = 100, spb = 60/BPM, sixteenth = spb/4;
+  const riff = [40,40,40,38,40,40,38,40,40,38,40,40,45,45,45,45];
+  const t0 = 2.8;
+  add(t0, kick(), 1.1); add(t0, snare(), 0.9); add(t0, cym(), 0.8);
+  add(t0, guitar(nf(16), 0.7, 1.0, 4), 1.0); // E0 drop
+
+  let pos = t0 + 0.4, index = 0;
+  while (pos < 13.5) {
+    const f = nf(riff[index % riff.length]);
+    const hd = sixteenth*0.92;
+    const ampN = index%4===0 ? 0.55 : 0.42;
+    add(pos, guitar(f, hd, ampN, 3.2), 0.9);
+    if (index%4===0) add(pos+0.002, guitar(nf(riff[index%riff.length]-12), hd, 0.5, 3.2), 0.8);
+    add(pos, kick(), 0.95);
+    if (index%8===0) add(pos, snare(), 0.85);
+    if (index%2===1) add(pos+sixteenth*0.5, kick(), 0.7);
+    if (index%4===1) add(pos, cym(), 0.5);
+    if (index%16===8) add(pos, cym(), 0.7);
+    pos += sixteenth; index++;
   }
+
+  // Breakdown
+  let brk = 8.0;
+  while (brk < 11.0) {
+    add(brk, guitar(nf(16), 0.5, 0.9, 4), 1.0);
+    add(brk, kick(), 1.0); add(brk, snare(), 0.9);
+    add(brk+0.25, kick(), 0.9); add(brk+0.5, snare(), 0.9);
+    brk += 0.5;
+  }
+  add(12.0, scream(1.4, 0, 70, 0.8), 1.0); // final guttural scream
+
+  let peak = 1e-9;
+  for (let i=0;i<len;i++) peak = Math.max(peak, Math.abs(out[i]));
+  const scale = (0.95/peak) * (volume/100);
+  for (let i=0;i<len;i++) out[i] *= scale;
   return buf;
 }
 
@@ -825,14 +1041,13 @@ for (let i=0;i<6;i++) ducks.push(new Duck());
 ducks[Math.floor(Math.random()*6)].weapon = "shotgun";
 let rld = Math.floor(Math.random()*6);
 while (ducks[rld].weapon !== "knife") rld = Math.floor(Math.random()*6);
-ducks[rld].weapon = "rocket_launcher";
+ ducks[rld].weapon = "rocket_launcher";
+ let tkd = Math.floor(Math.random()*6);
+ while (ducks[tkd].weapon !== "knife") tkd = Math.floor(Math.random()*6);
+ ducks[tkd].weapon = "tank";
+ ducks[tkd].size *= 1.2;
 
-document.getElementById('vol').addEventListener('input', () => {
-  currentVolume = parseInt(document.getElementById('vol').value, 10);
-  if (source) playMusic();
-});
-
-canvas.addEventListener('click', () => {
+ canvas.addEventListener('click', () => {
   for (const d of ducks) {
     d.phase = Math.random() * Math.PI * 2;
     d.style = ["bounce","spin","wiggle","wave"][Math.floor(Math.random()*4)];
