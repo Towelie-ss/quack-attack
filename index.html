@@ -885,9 +885,24 @@ function drawBackground(tick, duckTick) {
   juiceBlob(560, H-100, 35, 9, "#A52A2A", 73);
 
   // dramatic juice splash around the pool edge: big splatter blobs, stretched
-  // drips, and a spray of small satellite droplets
+  // drips, and a spray of small satellite droplets (all irregular, not circles)
   const sp = seedRand(99);
   const juicy = ["#8B0000", "#A52A2A", "#CD5C5C", "#7A1B1B", "#B22222"];
+  // irregular wobbly droplet blob (unique stable shape per seed)
+  const drop = (ix, iy, r, seed) => {
+    const rnd = seedRand(seed);
+    const n = 7;
+    ctx.beginPath();
+    for (let k = 0; k < n; k++) {
+      const ang = k / n * Math.PI * 2;
+      const rad = r * (0.55 + rnd() * 0.9);
+      const px = ix + Math.cos(ang) * rad;
+      const py = iy + Math.sin(ang) * rad * (0.7 + rnd() * 0.6);
+      if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  };
   // big irregular splatter blobs
   for (let i = 0; i < 16; i++) {
     const a = i / 16 * Math.PI * 2 + sp() * 0.4;
@@ -895,14 +910,10 @@ function drawBackground(tick, duckTick) {
     const bx = W/2 + Math.cos(a) * 305 * rr;
     const by = H-45 + Math.sin(a) * 125 * rr - sp() * 30;
     ctx.fillStyle = juicy[i % juicy.length];
-    ctx.beginPath();
-    ctx.arc(bx, by, 5 + sp() * 9, 0, Math.PI * 2);
-    ctx.fill();
+    drop(bx, by, 5 + sp() * 9, 101 + i);
     if (sp() < 0.5) {
       ctx.fillStyle = juicy[(i + 2) % juicy.length];
-      ctx.beginPath();
-      ctx.arc(bx - 2 + sp() * 4, by - 2 + sp() * 4, 2 + sp() * 3, 0, Math.PI * 2);
-      ctx.fill();
+      drop(bx - 2 + sp() * 4, by - 2 + sp() * 4, 2 + sp() * 3, 201 + i);
     }
   }
   // stretched drip streaks flying outward
@@ -912,9 +923,14 @@ function drawBackground(tick, duckTick) {
     const dx = W/2 + Math.cos(a) * 330 * rr;
     const dy = H-45 + Math.sin(a) * 135 * rr - sp() * 35;
     ctx.fillStyle = juicy[(i + 3) % juicy.length];
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.rotate(a);
+    ctx.scale(1 + sp() * 0.8, 0.35 + sp() * 0.3);
     ctx.beginPath();
-    ctx.ellipse(dx, dy, 4 + sp() * 7, 1.5 + sp() * 2, a, 0, Math.PI * 2);
+    ctx.arc(0, 0, 4 + sp() * 7, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
   // spray of small satellite droplets
   for (let i = 0; i < 30; i++) {
@@ -923,9 +939,7 @@ function drawBackground(tick, duckTick) {
     const sx = W/2 + Math.cos(a) * 315 * rr;
     const sy = H-45 + Math.sin(a) * 130 * rr - sp() * 40;
     ctx.fillStyle = juicy[i % juicy.length];
-    ctx.beginPath();
-    ctx.arc(sx, sy, 1.5 + sp() * 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    drop(sx, sy, 1.5 + sp() * 2.5, 301 + i);
   }
 
   for (const s of sparkles) {
