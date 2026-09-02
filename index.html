@@ -273,28 +273,54 @@ class Duck {
     ctx.ellipse(dx, this.y + s*0.9, s*0.8, 4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    const fo = Math.sin(this.foot)*5;
+    const a = this.angle * Math.PI/180;
+    const facing = Math.cos(a);
+
+    // Webbed feet
+    const fo = Math.sin(this.foot)*4;
     ctx.strokeStyle = this.beak;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.lineCap = "round";
     for (const side of [-1,1]) {
-      const fx = dx + side*s*0.3, fy = dy + s*0.6;
+      const fx = dx + side*s*0.25, fy = dy + s*0.55;
+      const ax = fx + side*2, ay = fy + 6 + fo;
       ctx.beginPath();
-      ctx.moveTo(fx, fy);
-      ctx.lineTo(fx + side*3, fy + 8 + fo);
-      ctx.lineTo(fx + side*3 - 5, fy + 11 + fo);
-      ctx.moveTo(fx + side*3, fy + 8 + fo);
-      ctx.lineTo(fx + side*3 + 5, fy + 11 + fo);
+      ctx.moveTo(fx, fy); ctx.lineTo(ax, ay);
       ctx.stroke();
+      for (const toe of [0,-1,1]) {
+        const tx = ax + side*4 + toe*side*6, ty = ay + 8;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay); ctx.lineTo(tx, ty);
+        ctx.stroke();
+      }
     }
 
+    // Tail
     ctx.fillStyle = this.color;
     ctx.strokeStyle = "#CC8800";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
+    const ty_ = dy + s*0.15;
     ctx.beginPath();
-    ctx.ellipse(dx, dy, s, s*0.6, 0, 0, Math.PI*2);
+    ctx.moveTo(dx - facing*s*0.95, ty_ - s*0.1);
+    ctx.lineTo(dx - facing*s*0.75, ty_);
+    ctx.lineTo(dx - facing*s*0.95, ty_ + s*0.3);
+    ctx.closePath();
     ctx.fill(); ctx.stroke();
 
+    // Body (teardrop)
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = "#C07820";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, s, s*0.75, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    // Belly highlight
+    ctx.fillStyle = "#F7E7A8";
+    ctx.beginPath();
+    ctx.ellipse(dx, dy + s*0.4, s*0.55, s*0.35, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Juice stains on body
     for (const stain of this.stains) {
       const sx = dx + stain.x * s * 0.85;
       const sy = dy + stain.y * s * 0.55;
@@ -304,18 +330,26 @@ class Duck {
       ctx.fill();
     }
 
-    const a = this.angle * Math.PI/180;
-    const hx = dx + Math.cos(a)*s*0.7;
-    const hy = dy - s*0.7 + Math.sin(a)*3;
+    // Neck + head (curved)
+    const hOff = s*0.8;
+    const hx = dx + facing*hOff;
+    const hy = dy - s*0.5 + Math.sin(a)*3;
+    const headR = s*0.4;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = s*0.3;
     ctx.beginPath();
-    ctx.arc(hx, hy, s*0.45, 0, Math.PI*2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
-    ctx.strokeStyle = "#CC8800";
+    ctx.moveTo(dx + facing*s*0.1, dy - s*0.2);
+    ctx.quadraticCurveTo(hx, hy + s*0.1, hx - facing*s*0.25, hy + s*0.25);
     ctx.stroke();
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = "#C07820";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(hx, hy, headR, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
 
     for (const stain of this.stains) {
-      if (Math.abs(stain.y + 0.7) < 0.5 && Math.abs(stain.x - Math.cos(a)*0.7) < 0.6) {
+      if (Math.abs(stain.y + 0.7) < 0.5 && Math.abs(stain.x - facing*0.7) < 0.6) {
         const sx = hx + stain.x * s * 0.3;
         const sy = hy + (stain.y + 0.7) * s * 0.3;
         ctx.fillStyle = `rgba(180, 20, 20, ${stain.opacity})`;
@@ -325,33 +359,46 @@ class Duck {
       }
     }
 
+    // Eye
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.arc(hx + s*0.15, hy - s*0.1, 3, 0, Math.PI*2);
+    ctx.arc(hx + facing*headR*0.45, hy - headR*0.1, 3, 0, Math.PI*2);
     ctx.fill();
     ctx.fillStyle = "white";
     ctx.beginPath();
-    ctx.arc(hx + s*0.15 - 1, hy - s*0.1 - 1, 1, 0, Math.PI*2);
+    ctx.arc(hx + facing*headR*0.45 - 1, hy - headR*0.1 - 1, 1, 0, Math.PI*2);
     ctx.fill();
 
-    const dir = Math.cos(a);
-    const bx = hx + dir*s*0.5, by = hy + s*0.1;
+    // Broad duck bill with nostril
+    const billLen = s*0.28;
     ctx.fillStyle = this.beak;
     ctx.strokeStyle = "#CC5500";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(bx, by-4);
-    ctx.lineTo(bx + dir*s*0.4, by);
-    ctx.lineTo(bx, by+4);
+    ctx.moveTo(hx + facing*headR*0.8, hy + headR*0.3 - s*0.12);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.3);
+    ctx.lineTo(hx + facing*headR*0.8 + facing*billLen, hy + headR*0.3 + s*0.06);
+    ctx.lineTo(hx + facing*headR*0.8, hy + headR*0.3 + s*0.12);
     ctx.closePath();
     ctx.fill(); ctx.stroke();
-
-    const ww = Math.sin(this.foot)*8;
-    const wx = dx - s*0.3, wy = dy - s*0.1 + ww;
-    ctx.strokeStyle = "#CC8800";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = "#996600";
     ctx.beginPath();
-    ctx.arc(wx, wy, s*0.5, Math.PI*0.65, Math.PI*0.35, true);
-    ctx.stroke();
+    ctx.arc(hx + facing*headR*0.8 + facing*billLen*0.3, hy + headR*0.3, 1, 0, Math.PI*2);
+    ctx.fill();
+
+    // Shaped wing
+    const ww = Math.sin(this.foot)*8;
+    const wingX = dx - facing*s*0.25, wingY = dy - s*0.1 + ww;
+    ctx.fillStyle = "#C8A24B";
+    ctx.strokeStyle = "#A07a20";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(wingX - s*0.3, wingY - s*0.2);
+    ctx.lineTo(wingX + s*0.3, wingY - s*0.1);
+    ctx.lineTo(wingX + s*0.5, wingY + s*0.15);
+    ctx.lineTo(wingX - s*0.2, wingY + s*0.3);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
 
     if (this.weapon === "shotgun") {
       const knifeAngle = (this.angle + 30) * Math.PI / 180;
