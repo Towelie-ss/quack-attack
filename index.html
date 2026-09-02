@@ -839,20 +839,36 @@ function drawBackground(tick, duckTick) {
   ctx.fillStyle = "#5AA84A";
   ctx.fillRect(0, 200, W, H-200);
 
-  ctx.fillStyle = "#8B0000";
-  ctx.strokeStyle = "#5C0000";
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.ellipse(W/2, H-60, 320, 140, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#A52A2A";
-  ctx.beginPath(); ctx.ellipse(W/2, H-50, 260, 110, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = "#CD5C5C";
-  ctx.beginPath(); ctx.ellipse(W/2, H-40, 180, 70, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = "#E06060";
-  ctx.beginPath(); ctx.ellipse(W/2, H-30, 100, 35, 0, 0, Math.PI*2); ctx.fill();
+  // Organic (less round) spilled juice pool: irregular blobs + drips instead of
+  // nested concentric ellipses. Seeded wobble keeps it stable across frames.
+  const seedRand = (s) => { let x = s >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
+  const juiceBlob = (cx, cy, rx, ry, color, seed, outline) => {
+    const rnd = seedRand(seed), n = 16;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const ang = i / n * Math.PI * 2;
+      const wob = 0.72 + rnd() * 0.56;
+      const px = cx + Math.cos(ang) * rx * wob;
+      const py = cy + Math.sin(ang) * ry * (0.7 + rnd() * 0.5);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    if (outline) { ctx.strokeStyle = outline; ctx.lineWidth = 3; ctx.stroke(); }
+  };
+  juiceBlob(W/2, H-45, 300, 120, "#8B0000", 11, "#5C0000");
+  juiceBlob(W/2-30, H-35, 235, 90, "#A52A2A", 23);
+  juiceBlob(W/2+40, H-45, 150, 55, "#CD5C5C", 37);
+  juiceBlob(W/2+10, H-35, 85, 30, "#E06060", 41);
+  juiceBlob(640, H-80, 45, 12, "#A52A2A", 55);
+  juiceBlob(210, H-95, 40, 14, "#8B0000", 61);
+  juiceBlob(370, H-115, 30, 10, "#CD5C5C", 67);
+  juiceBlob(560, H-100, 35, 9, "#A52A2A", 73);
 
   for (let i=0;i<8;i++) {
     const rx = W/2 + Math.sin(t+i*0.7)*120;
-    const ry = H-60 + Math.cos(t+i*0.5)*30;
+    const ry = H-45 + Math.cos(t+i*0.5)*30;
     ctx.strokeStyle = `rgba(255, 100, 100, ${0.4 + Math.sin(t+i)*0.2})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.ellipse(rx, ry, 25+i*4, 6, 0, 0, Math.PI*2); ctx.stroke();
