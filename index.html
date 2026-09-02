@@ -1228,7 +1228,7 @@ function drawBackground(tick, duckTick) {
   ctx.fillStyle = "#33291a";
   ctx.fillRect(0, 286, W, 90);
   ctx.fillStyle = "#241c10";
-  ctx.fillRect(0, HEIGHT > 0 ? H - 70 : H, W, 70);
+  ctx.fillRect(0, H - 70, W, 70);
   // scattered ground rocks / stones (stable, seeded so it doesn't flicker)
   const rg = (() => { let x = 2024 >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; })();
   ctx.fillStyle = "#4a3c25";
